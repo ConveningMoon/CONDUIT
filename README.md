@@ -47,4 +47,5 @@ pytest
 
 ## Status
 
-Early. Skeleton and toolchain in place; the tool-calling protocol is next.
+Early. The tool-calling protocol and the orchestration loop are in place and
+tested. No adapter is wired yet, and the default guard denies every write.
