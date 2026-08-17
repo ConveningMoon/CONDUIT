@@ -32,9 +32,13 @@ from conduit.core.telemetry import turn_ledger
 from conduit.core.tools import ToolRegistry, ToolSpec
 
 GOLDEN_SET = Path(__file__).resolve().parent.parent / "evals" / "planner_golden_set.json"
-DEMO_RESERVE_RUB = 450.0
-"""Kept back for the live demo on the expensive model. Development spends what is
-above this line and nothing below it."""
+DEMO_RESERVE_RUB = 250.0
+"""Kept back for the live demo on the expensive model.
+
+Sized, not guessed: a 30-minute conversation is 20-40 turns; at roughly 5.3₽ a
+turn on the expensive model that is ~212₽, and 250₽ covers it with room for
+retries on the day. Development spends what is above this line and nothing below.
+"""
 
 
 @dataclass(slots=True)

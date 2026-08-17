@@ -8,19 +8,27 @@ has neither failure mode.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import structlog
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message
 
 from conduit.core.agent import Agent
+from conduit.core.telemetry import ModelCall, turn_ledger
 from conduit.core.tools import ToolContext
 from conduit.interfaces.telegram.bindings import BindingTable, Resolution
 from conduit.interfaces.telegram.config import TelegramSettings
 
-__all__ = ["REFUSAL", "TelegramGateway", "build_dispatcher"]
+__all__ = ["REFUSAL", "TYPING_REFRESH_SECONDS", "TelegramGateway", "build_dispatcher"]
+
+TYPING_REFRESH_SECONDS = 4.0
+"""Telegram drops the typing state after about five seconds, so it has to be
+re-sent while the model thinks. Sending it once at the start would let the
+silence reappear at exactly the point the wait feels longest."""
 
 log = structlog.get_logger(__name__)
 
@@ -41,6 +49,9 @@ class TelegramGateway:
 
     agent: Agent
     bindings: BindingTable
+    last_turn: dict[str, list[ModelCall]] = field(default_factory=dict)
+    """Model calls from the most recent turn of each session, for ``/debug``.
+    One entry per conversation, overwritten each turn — a log, not a ledger."""
 
     async def handle(self, message: Message) -> str:
         chat = message.chat
@@ -62,35 +73,84 @@ class TelegramGateway:
         binding = resolution.binding
         assert binding is not None  # narrowed by resolution.allowed
 
+        session_id = f"telegram:{chat.id}"
+
+        if text.split()[0].lstrip("/").split("@", 1)[0].lower() == "debug":
+            return self._debug(session_id)
+
         ctx = ToolContext(
             tenant_id=binding.tenant_id,
-            session_id=f"telegram:{chat.id}",
+            session_id=session_id,
             actor_id=f"telegram:{sender.id}",
             request_id=uuid.uuid4().hex,
             idempotency_key=f"tg-{chat.id}-{message.message_id}",
         )
 
+        typing = self._start_typing(message)
         try:
-            reply = await self.agent.run(text, ctx)
+            with turn_ledger() as ledger:
+                reply = await self.agent.run(text, ctx)
+            self.last_turn[session_id] = ledger
         # The interface is the last line: a crash here is a silent bot.
         except Exception:
             log.exception(
                 "telegram.turn_failed",
                 tenant_id=binding.tenant_id,
-                session_id=ctx.session_id,
+                session_id=session_id,
                 request_id=ctx.request_id,
             )
             return PROBLEM
+        finally:
+            if typing is not None:
+                typing.cancel()
 
         log.info(
             "telegram.turn",
             tenant_id=binding.tenant_id,
-            session_id=ctx.session_id,
+            session_id=session_id,
             request_id=ctx.request_id,
             stop_reason=reply.stop_reason.value,
             calls=len(reply.calls),
+            model_calls=len(ledger),
+            cost_rub=round(sum(entry.cost_rub for entry in ledger), 3),
         )
         return reply.text or PROBLEM
+
+    @staticmethod
+    def _start_typing(message: Message) -> asyncio.Task[None] | None:
+        """Keep the 'typing' state alive while the turn runs."""
+        bot = message.bot
+        if bot is None:
+            return None
+
+        async def loop() -> None:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                while True:
+                    await bot.send_chat_action(message.chat.id, "typing")
+                    await asyncio.sleep(TYPING_REFRESH_SECONDS)
+
+        return asyncio.create_task(loop())
+
+    def _debug(self, session_id: str) -> str:
+        """What the last turn cost, and on which model.
+
+        Model choice is a decision made on the user's behalf; leaving it in a
+        config file means nobody can check whether the cheap one was right.
+        """
+        entries = self.last_turn.get(session_id)
+        if not entries:
+            return "No model calls yet this session. Commands are answered without one."
+
+        lines = [
+            f"• {entry.model}  {entry.cost_rub:.2f} RUB  {entry.latency_ms} ms"
+            f"  in/out {entry.input_tokens}/{entry.output_tokens}"
+            + ("  (retry after an unparseable reply)" if entry.retry else "")
+            for entry in entries
+        ]
+        total = sum(entry.cost_rub for entry in entries)
+        return f"Last turn: {len(entries)} model call(s), {total:.2f} RUB total\n" + "\n".join(
+            lines
+        )
 
     @staticmethod
     def _log_denial(resolution: Resolution, *, chat_id: int, user_id: int) -> None:

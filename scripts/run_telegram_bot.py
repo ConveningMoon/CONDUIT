@@ -8,6 +8,9 @@ Startup order matters and is deliberate:
 
 Every step fails closed. A bot that starts anyway and discovers at message time
 that it is pointed at the wrong tenant has already lost.
+
+**One instance only.** The guard's counters are in process memory, so a second
+replica would keep its own ceilings and neither would be a ceiling.
 """
 
 from __future__ import annotations
@@ -20,9 +23,16 @@ import structlog
 
 from conduit.adapters.itmano_crm import ItmanoCrmClient, ItmanoCrmSettings
 from conduit.adapters.itmano_crm.tools import register
-from conduit.core.agent import Agent, ReadOnlyGuard
+from conduit.adapters.vibemarketolog import (
+    LlmPlanner,
+    VibemarketologClient,
+    VibemarketologSettings,
+)
+from conduit.core.agent import Agent
+from conduit.core.audit import HashChainAuditSink, InMemoryAuditStore
+from conduit.core.guard import DeterministicGuard, GuardSettings, InMemoryGuardStore
 from conduit.core.tools import ToolRegistry
-from conduit.interfaces.telegram import CommandPlanner, TelegramSettings, load_bindings
+from conduit.interfaces.telegram import CommandFastPath, TelegramSettings, load_bindings
 from conduit.interfaces.telegram.bot import run
 
 log = structlog.get_logger("conduit")
@@ -41,6 +51,7 @@ async def main() -> int:
     )
 
     crm = ItmanoCrmClient(ItmanoCrmSettings())
+    platform = VibemarketologClient(VibemarketologSettings())
     try:
         identity = await crm.verify()
         log.info(
@@ -62,14 +73,28 @@ async def main() -> int:
         registry.freeze()
         log.info("tools.registered", count=len(registry))
 
+        balance = await platform.balance_rub()
+        log.info(
+            "planner.ready",
+            model=platform.settings.planner_model,
+            balance_rub=balance,
+        )
+
         agent = Agent(
             registry=registry,
-            planner=CommandPlanner(),
-            guard=ReadOnlyGuard(),
+            planner=CommandFastPath(
+                fallback=LlmPlanner(
+                    client=platform,
+                    known_tools=frozenset(spec.name for spec in registry.specs()),
+                )
+            ),
+            guard=DeterministicGuard(settings=GuardSettings(), store=InMemoryGuardStore()),
+            audit=HashChainAuditSink(store=InMemoryAuditStore()),
         )
         await run(agent, bindings, telegram)
     finally:
         await crm.aclose()
+        await platform.aclose()
     return 0
 
 

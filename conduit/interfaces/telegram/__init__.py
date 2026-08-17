@@ -9,7 +9,7 @@ from conduit.interfaces.telegram.bindings import (
 )
 from conduit.interfaces.telegram.bot import REFUSAL, TelegramGateway, build_dispatcher
 from conduit.interfaces.telegram.config import TelegramSettings
-from conduit.interfaces.telegram.planner import HELP, CommandPlanner
+from conduit.interfaces.telegram.planner import HELP, CommandFastPath, CommandPlanner
 
 __all__ = [
     "HELP",
@@ -17,6 +17,7 @@ __all__ = [
     "Binding",
     "BindingError",
     "BindingTable",
+    "CommandFastPath",
     "CommandPlanner",
     "DenialReason",
     "TelegramGateway",

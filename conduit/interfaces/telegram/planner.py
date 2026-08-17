@@ -14,12 +14,13 @@ model-backed planner lands, this stays in front of it.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 from typing import Any
 
-from conduit.core.agent import Plan, PlanRequest, Role
+from conduit.core.agent import Plan, Planner, PlanRequest, Role
 from conduit.core.tools import ToolCall
 
-__all__ = ["HELP", "CommandPlanner"]
+__all__ = ["HELP", "CommandFastPath", "CommandPlanner"]
 
 HELP = (
     "I can look things up in the CRM.\n\n"
@@ -29,15 +30,14 @@ HELP = (
     "/deals — purchase processes\n"
     "/search <text> — search leads, properties and deals\n"
     "/whoami — which tenant this conversation is bound to\n"
-    "/help — this message"
+    "/debug — what the last answer cost, and on which model\n"
+    "/help — this message\n\n"
+    "Or just ask in your own words."
 )
 
 STAGES = {"nuevo", "nutricion", "en_proceso", "cerrado", "perdido"}
 
-UNKNOWN = (
-    "I only understand commands for now. Send /help to see them.\n"
-    "Free-form questions need the model-backed planner, which is not wired yet."
-)
+UNKNOWN = "I did not recognise that command. Send /help to see the list."
 
 
 def _truncate(text: str, limit: int = 60) -> str:
@@ -215,3 +215,33 @@ class CommandPlanner:
             f"• [{row.get('type', '?')}] {row.get('label', '?')}  {row.get('id', '')}"
             for row in rows
         )
+
+
+@dataclass(slots=True)
+class CommandFastPath:
+    """Commands answered deterministically; everything else goes to a model.
+
+    Ownership of a turn is decided once, by the message that opened it: a slash
+    command belongs to :class:`CommandPlanner` for both the dispatch and the
+    rendering, anything else to ``fallback``. Deciding per iteration would let a
+    turn change hands halfway through and render with the wrong formatter.
+
+    This is also the safety net. If the model API is unreachable the commands
+    keep working, so a demo does not go dark because someone else's service did.
+    """
+
+    fallback: Planner
+    commands: CommandPlanner = field(default_factory=CommandPlanner)
+
+    async def plan(self, request: PlanRequest) -> Plan:
+        if self._is_command_turn(request):
+            return await self.commands.plan(request)
+        return await self.fallback.plan(request)
+
+    @staticmethod
+    def _is_command_turn(request: PlanRequest) -> bool:
+        opening = next(
+            (turn.content for turn in request.history if turn.role is Role.USER),
+            "",
+        )
+        return opening.strip().startswith("/")
