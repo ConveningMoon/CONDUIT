@@ -9,7 +9,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `97226ccb`
+- Built from commit: `ddfb9f85`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -85,36 +85,36 @@ Cohesion: 0.23
 Nodes (16): CreateEmailDraftParams, CreateNoteParams, GetDealParams, GetLeadParams, Intent, Language, ListDealsParams, NoParams (+8 more)
 
 ### Community 5 - "Community 5"
+Cohesion: 0.38
+Nodes (3): ToolRegistry, The planner sees descriptions and nothing else., TestRegistration
+
+### Community 6 - "Community 6"
 Cohesion: 0.19
 Nodes (9): Any, Argument schema, in the form a function-calling planner expects., Every spec, or only those of one adapter, sorted by name., What the planner is shown., main(), percentile(), Measure what a CRM tool call actually costs, through the real invocation path.…, timed() (+1 more)
 
-### Community 6 - "Community 6"
+### Community 7 - "Community 7"
 Cohesion: 0.22
 Nodes (10): fixture, ItmanoCrmSettings, ctx(), registry(), crm(), crm_registry(), ItmanoCrmClient, Offline tests for the CRM adapter. Every response here comes from… (+2 more)
 
-### Community 7 - "Community 7"
+### Community 8 - "Community 8"
 Cohesion: 0.24
 Nodes (10): Any, ItmanoCrmClient, ToolRegistry, Perform a call and flatten every expected failure into a result., Publish the CRM tools. Call once at startup, before ``registry.freeze()``. The…, register(), _run(), _spec() (+2 more)
 
-### Community 8 - "Community 8"
+### Community 9 - "Community 9"
 Cohesion: 0.33
 Nodes (4): CreateLeadParams, ListLeadsParams, The CRM has no unassigned state, so this must never reach the network., TestArgumentValidation
-
-### Community 9 - "Community 9"
-Cohesion: 0.38
-Nodes (3): ToolRegistry, The planner sees descriptions and nothing else., TestRegistration
 
 ### Community 10 - "Community 10"
 Cohesion: 0.47
 Nodes (5): from_code(), from_status(), ToolErrorCode, Translation from the CRM's error vocabulary into CONDUIT's. The CRM publishes a…, Map a published error code. Falls back to the status when unrecognised. An…
 
 ### Community 11 - "Community 11"
-Cohesion: 0.33
-Nodes (3): agent_tool_operations(), Operation ids the contract marks as belonging in an agent's catalogue.…, TestContract
-
-### Community 12 - "Community 12"
 Cohesion: 0.67
 Nodes (3): _imported_modules(), Executable form of the dependency rule: the core points inward only., test_core_never_imports_adapters_or_interfaces()
+
+### Community 19 - "Community 19"
+Cohesion: 0.33
+Nodes (3): agent_tool_operations(), Operation ids the contract marks as belonging in an agent's catalogue.…, TestContract
 
 ## Knowledge Gaps
 - **1 isolated node(s):** `conduit`
@@ -124,9 +124,9 @@ Nodes (3): _imported_modules(), Executable form of the dependency rule: the core
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ToolRegistry` connect `Community 2` to `Community 0`, `Community 5`, `Community 6`?**
+- **Why does `ToolRegistry` connect `Community 2` to `Community 0`, `Community 6`, `Community 7`?**
   _High betweenness centrality (0.141) - this node is a cross-community bridge._
-- **Why does `ToolContext` connect `Community 0` to `Community 2`, `Community 6`?**
+- **Why does `ToolContext` connect `Community 0` to `Community 2`, `Community 7`?**
   _High betweenness centrality (0.078) - this node is a cross-community bridge._
 - **Are the 30 inferred relationships involving `ToolRegistry` (e.g. with `Agent` and `AgentReply`) actually correct?**
   _`ToolRegistry` has 30 INFERRED edges - model-reasoned connections that need verification._
