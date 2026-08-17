@@ -1,15 +1,15 @@
-# Graph Report - .  (2026-08-12)
+# Graph Report - .  (2026-08-17)
 
 ## Corpus Check
 - cluster-only mode — file stats not available
 
 ## Summary
-- 186 nodes · 732 edges · 21 communities (14 shown, 7 thin omitted)
-- Extraction: 57% EXTRACTED · 43% INFERRED · 0% AMBIGUOUS · INFERRED: 317 edges (avg confidence: 0.5)
+- 265 nodes · 879 edges · 20 communities (13 shown, 7 thin omitted)
+- Extraction: 63% EXTRACTED · 37% INFERRED · 0% AMBIGUOUS · INFERRED: 327 edges (avg confidence: 0.5)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `d14ce5e1`
+- Built from commit: `1b73aa35`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -26,6 +26,7 @@
 - Community 9
 - Community 10
 - Community 11
+- Community 12
 - Community 13
 - Community 14
 - Community 15
@@ -33,8 +34,6 @@
 - Community 17
 - Community 18
 - Community 19
-- Community 20
-- Community 21
 
 ## God Nodes (most connected - your core abstractions)
 1. `ToolRegistry` - 70 edges
@@ -49,77 +48,73 @@
 10. `ScriptedPlanner` - 31 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `PermissiveGuard` --uses--> `Role`  [INFERRED]
+- `ExplodingPlanner` --uses--> `GuardDecision`  [INFERRED]
   tests/test_agent.py → conduit/core/agent.py
-- `RecordingAudit` --uses--> `Role`  [INFERRED]
+- `PermissiveGuard` --uses--> `GuardDecision`  [INFERRED]
   tests/test_agent.py → conduit/core/agent.py
-- `ScriptedPlanner` --uses--> `Role`  [INFERRED]
+- `RecordingAudit` --uses--> `GuardDecision`  [INFERRED]
   tests/test_agent.py → conduit/core/agent.py
-- `TestAudit` --uses--> `Role`  [INFERRED]
+- `ScriptedPlanner` --uses--> `GuardDecision`  [INFERRED]
   tests/test_agent.py → conduit/core/agent.py
-- `TestExecution` --uses--> `Role`  [INFERRED]
+- `TestAudit` --uses--> `GuardDecision`  [INFERRED]
   tests/test_agent.py → conduit/core/agent.py
 
 ## Import Cycles
 - None detected.
 
-## Communities (21 total, 7 thin omitted)
+## Communities (20 total, 7 thin omitted)
 
 ### Community 0 - "Community 0"
-Cohesion: 0.13
-Nodes (16): AgentReply, ExecutedCall, GuardDecision, NullAuditSink, BaseModel, Verdict on a single proposed call., Discards everything. Only acceptable in tests and phase-1 scaffolding., A call the loop actually considered, and what came of it. (+8 more)
+Cohesion: 0.16
+Nodes (36): Agent, AuditEvent, AuditPhase, Plan, PlanRequest, BaseModel, StrEnum, Orchestration loop: intent, plan, guard, execute, report. The loop owns the… (+28 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.11
-Nodes (14): Any, AuditSink, Guard, Planner, Protocol, Turns a transcript plus a tool catalogue into the next step., Deterministic-first gate in front of every call. Implementations run cheap…, Where action records go. The hash chain lives in the implementation. (+6 more)
+Cohesion: 0.07
+Nodes (34): DuplicateToolError, Protocol, Tool registry and calling protocol. This module is the contract every other…, The shape of a tool implementation., Raised when two tools claim the same name., Raised when a name is looked up that was never registered., Raised on an attempt to register after the registry was frozen., Name-to-implementation map, populated at startup and then frozen. Freezing… (+26 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.12
-Nodes (9): Protocol, The shape of a tool implementation., Name-to-implementation map, populated at startup and then frozen. Freezing…, Add a tool. Raises rather than silently replacing an existing name., Decorator form of :meth:`register`., RegisteredTool, ToolHandler, ToolRegistry (+1 more)
+Cohesion: 0.13
+Nodes (17): AgentReply, ExecutedCall, Guard, GuardDecision, NullAuditSink, Verdict on a single proposed call., Deterministic-first gate in front of every call. Implementations run cheap…, Discards everything. Only acceptable in tests and phase-1 scaffolding. (+9 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.30
-Nodes (12): AuditPhase, PlanRequest, StrEnum, Orchestration loop: intent, plan, guard, execute, report. The loop owns the…, ``INTENT`` is written before the call runs, ``OUTCOME`` after., What the planner is given. Deliberately model-agnostic., Role, StopReason (+4 more)
+Cohesion: 0.11
+Nodes (12): Any, AuditSink, Planner, Protocol, Turns a transcript plus a tool catalogue into the next step., Where action records go. The hash chain lives in the implementation., Everything the rest of the system needs to know about a tool. Declared once by…, Adapter this tool belongs to, e.g. ``itmano_crm``. (+4 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.27
-Nodes (10): What a tool does to the world. The guard treats these very differently:…, SideEffect, fixture, ctx(), EchoParams, NoParams, BaseModel, Shared fixtures. Nothing here talks to a real system. (+2 more)
+Cohesion: 0.16
+Nodes (14): BaseException, ItmanoCrmClient, One client per process. Holds the connection pool; owns no state., Self, client(), Live checks against the CRM sandbox. Read-only, and skipped by default. These…, Drift detector. The vendored contract is where per-operation timeouts and the…, test_an_over_large_limit_is_rejected_not_truncated() (+6 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.28
-Nodes (8): Plan, Default guard until ``conduit.core.guard`` lands: reads pass, writes do not.…, What the planner returns. A plan with no tool calls ends the turn; ``reply`` is…, ReadOnlyGuard, Emits a fixed sequence of plans, one per iteration., ScriptedPlanner, TestAudit, TestGuardOrdering
+Cohesion: 0.21
+Nodes (10): CrmError, _float_header(), _int_header(), Any, HTTP client for the CRM agent surface. Failures raise :class:`CrmError`…, Perform one operation from the contract., Download the contract the server is publishing right now. Used to detect drift…, A call that did not succeed, already in CONDUIT's error vocabulary. (+2 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.27
-Nodes (6): Raised on an attempt to register after the registry was frozen., RegistryFrozenError, RuntimeError, _spec(), TestRegistry, TestSpec
+Cohesion: 0.20
+Nodes (6): BaseModel, ConfigurationError, Refuse to serve anything if the server is not who we expect. Called once before…, The adapter is pointed somewhere it was not meant to reach., Identity the server reports for our token., WhoAmI
 
 ### Community 7 - "Community 7"
-Cohesion: 0.28
-Nodes (5): BaseModel, Structured failure detail. Safe to serialise into the audit log., Uniform envelope returned by every tool. Handlers return this instead of…, ToolError, ToolResult
+Cohesion: 0.24
+Nodes (7): BaseSettings, CrmResponse, A successful call, plus the headers worth carrying forward., ItmanoCrmSettings, Configuration for the ITMANO CRM adapter. Everything arrives via env vars., Connection details plus the assertion that guards against pointing here at the…, Adapter for the ITMANO CRM agent surface (``/agent/v1``). The CRM owns tenant…
 
 ### Community 8 - "Community 8"
-Cohesion: 0.25
-Nodes (7): DuplicateToolError, StrEnum, Tool registry and calling protocol. This module is the contract every other…, Raised when two tools claim the same name., Provider-agnostic failure taxonomy. Adapters map their own upstream errors onto…, ToolErrorCode, ValueError
+Cohesion: 0.28
+Nodes (7): contract_version(), load_contract(), operations(), Any, The published contract, vendored. ``contract/openapi.json`` is a byte-for-byte…, Parse the vendored document. Cached; the file cannot change at runtime., Every operation in the contract, keyed by ``operationId``.
 
 ### Community 9 - "Community 9"
-Cohesion: 0.48
-Nodes (3): Agent, Runs one user turn to completion. ``max_iterations`` bounds plan/execute…, TestTerminating
+Cohesion: 0.33
+Nodes (3): Operation, One route, as the contract describes it., Client-side timeout: the server's deadline plus room to answer.
 
 ### Community 10 - "Community 10"
 Cohesion: 0.47
-Nodes (4): One entry in the conversation transcript., Turn, PermissiveGuard, TestExecution
+Nodes (5): from_code(), from_status(), ToolErrorCode, Translation from the CRM's error vocabulary into CONDUIT's. The CRM publishes a…, Map a published error code. Falls back to the status when unrecognised. An…
 
 ### Community 11 - "Community 11"
-Cohesion: 0.50
-Nodes (3): AuditEvent, One record in the action log. Serialisable, no live objects., RecordingAudit
+Cohesion: 0.33
+Nodes (3): BaseModel, Structured failure detail. Safe to serialise into the audit log., ToolError
 
-### Community 14 - "Community 14"
+### Community 13 - "Community 13"
 Cohesion: 0.67
 Nodes (3): _imported_modules(), Executable form of the dependency rule: the core points inward only., test_core_never_imports_adapters_or_interfaces()
-
-### Community 15 - "Community 15"
-Cohesion: 0.67
-Nodes (3): Raised when a name is looked up that was never registered., UnknownToolError, KeyError
 
 ## Knowledge Gaps
 - **1 isolated node(s):** `conduit`
@@ -129,12 +124,12 @@ Nodes (3): Raised when a name is looked up that was never registered., UnknownTo
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ToolRegistry` connect `Community 2` to `Community 0`, `Community 1`, `Community 3`, `Community 4`, `Community 5`, `Community 6`, `Community 8`, `Community 9`, `Community 10`, `Community 11`, `Community 13`?**
-  _High betweenness centrality (0.218) - this node is a cross-community bridge._
-- **Why does `ToolSpec` connect `Community 1` to `Community 0`, `Community 2`, `Community 3`, `Community 4`, `Community 5`, `Community 6`, `Community 7`, `Community 8`, `Community 9`, `Community 10`, `Community 11`, `Community 13`?**
-  _High betweenness centrality (0.108) - this node is a cross-community bridge._
-- **Why does `ToolContext` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 4`, `Community 5`, `Community 6`, `Community 8`, `Community 9`, `Community 10`, `Community 11`, `Community 13`?**
-  _High betweenness centrality (0.099) - this node is a cross-community bridge._
+- **Why does `ToolRegistry` connect `Community 1` to `Community 0`, `Community 2`, `Community 3`?**
+  _High betweenness centrality (0.175) - this node is a cross-community bridge._
+- **Why does `ItmanoCrmClient` connect `Community 4` to `Community 5`, `Community 6`, `Community 7`, `Community 8`, `Community 9`, `Community 12`?**
+  _High betweenness centrality (0.105) - this node is a cross-community bridge._
+- **Why does `ToolSpec` connect `Community 3` to `Community 0`, `Community 1`, `Community 2`, `Community 11`?**
+  _High betweenness centrality (0.093) - this node is a cross-community bridge._
 - **Are the 30 inferred relationships involving `ToolRegistry` (e.g. with `Agent` and `AgentReply`) actually correct?**
   _`ToolRegistry` has 30 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 30 inferred relationships involving `ToolContext` (e.g. with `Agent` and `AgentReply`) actually correct?**
