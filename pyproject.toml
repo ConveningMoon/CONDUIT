@@ -77,4 +77,7 @@ disallow_untyped_defs = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-q"
+addopts = "-q -m 'not live'"
+markers = [
+    "live: reaches the real CRM sandbox over the network; needs credentials and a clean egress",
+]
