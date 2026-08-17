@@ -221,3 +221,22 @@ class TestNoParamsTool:
         )
 
         assert "demo.ping()" in build_system_prompt((spec,))
+
+
+class TestResultClipping:
+    def test_a_normal_page_reaches_the_planner_whole(self) -> None:
+        """A page of ten leads is ~3000 chars. Cutting it was the truncation bug."""
+        from conduit.adapters.vibemarketolog.planner import _clip
+
+        page = "x" * 3105
+
+        assert _clip(page) == page
+
+    def test_an_oversized_result_says_it_was_cut(self) -> None:
+        """Silent truncation makes the model invent the rest or hedge blindly."""
+        from conduit.adapters.vibemarketolog.planner import MAX_RESULT_CHARS, _clip
+
+        clipped = _clip("x" * (MAX_RESULT_CHARS + 500))
+
+        assert "truncated: 500 more characters" in clipped
+        assert clipped.startswith("x" * 100)

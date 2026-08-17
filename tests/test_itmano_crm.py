@@ -345,8 +345,10 @@ class TestWritePaths:
 
 class TestArgumentValidation:
     def test_an_invented_stage_is_refused_before_any_request(self) -> None:
+        """'won' used to be the example here; it is now a recognised alias for
+        'cerrado', so this needs a value that maps to nothing at all."""
         with pytest.raises(ValidationError):
-            ListLeadsParams(stage="won")  # type: ignore[arg-type]
+            ListLeadsParams(stage="qualified")  # type: ignore[arg-type]
 
     def test_the_contract_enum_is_what_we_accept(self) -> None:
         assert ListLeadsParams(stage=LeadStage.CERRADO).stage is LeadStage.CERRADO
@@ -405,3 +407,39 @@ class TestStartupAssertion:
 
         with pytest.raises(ConfigurationError, match="production"):
             await crm.verify()
+
+
+class TestStageAliases:
+    """A rejected enum costs a whole extra planning round trip, so accept the
+    English names both models were measured emitting."""
+
+    @pytest.mark.parametrize(
+        ("given", "expected"),
+        [
+            ("lost", LeadStage.PERDIDO),
+            ("closed", LeadStage.CERRADO),
+            ("won", LeadStage.CERRADO),
+            ("new", LeadStage.NUEVO),
+            ("in_progress", LeadStage.EN_PROCESO),
+            ("in progress", LeadStage.EN_PROCESO),
+            ("in-progress", LeadStage.EN_PROCESO),
+            ("LOST", LeadStage.PERDIDO),
+            ("  lost  ", LeadStage.PERDIDO),
+        ],
+    )
+    def test_english_names_are_normalised(self, given: str, expected: LeadStage) -> None:
+        assert ListLeadsParams(stage=given).stage is expected  # type: ignore[arg-type]
+
+    def test_the_real_values_still_work(self) -> None:
+        assert ListLeadsParams(stage="perdido").stage is LeadStage.PERDIDO  # type: ignore[arg-type]
+
+    def test_an_invented_stage_is_still_refused(self) -> None:
+        """Normalising is not the same as accepting anything."""
+        with pytest.raises(ValidationError):
+            ListLeadsParams(stage="abandoned")  # type: ignore[arg-type]
+
+    def test_deals_and_updates_normalise_too(self) -> None:
+        from conduit.adapters.itmano_crm.models import ListDealsParams, UpdateLeadParams
+
+        assert ListDealsParams(lead_stage="lost").lead_stage is LeadStage.PERDIDO  # type: ignore[arg-type]
+        assert UpdateLeadParams(id="x", stage="won").stage is LeadStage.CERRADO  # type: ignore[arg-type]

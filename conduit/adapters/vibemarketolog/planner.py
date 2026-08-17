@@ -104,6 +104,34 @@ def _strip_fences(text: str) -> str:
     return _FENCE.sub("", text).strip()
 
 
+MAX_RESULT_CHARS = 12000
+"""How much of a tool result reaches the planner.
+
+Generous on purpose. A page of ten leads is about 3000 characters — roughly 776
+tokens, which at 60₽ per million input tokens is 0.05₽, below the per-call
+minimum charge. Truncating to save that is throwing away data for nothing. The
+earlier limit of 1500 cut a normal page in half, and the model correctly reported
+that it could not see the rest.
+"""
+
+
+def _clip(content: str) -> str:
+    """Trim only what is genuinely oversized, and say so when it happens.
+
+    Silent truncation is the worst option: the model cannot tell a short list
+    from a cut one, so it either invents the rest or hedges. An explicit marker
+    lets it say "the first N" and be right.
+    """
+    if len(content) <= MAX_RESULT_CHARS:
+        return content
+    omitted = len(content) - MAX_RESULT_CHARS
+    return (
+        f"{content[:MAX_RESULT_CHARS]}\n"
+        f"[truncated: {omitted} more characters. Tell the user the list is partial "
+        f"and offer to narrow it with a filter.]"
+    )
+
+
 def _transcript(request: PlanRequest, limit: int = 12) -> str:
     lines: list[str] = []
     for turn in request.history[-limit:]:
@@ -113,7 +141,7 @@ def _transcript(request: PlanRequest, limit: int = 12) -> str:
             case Role.ASSISTANT:
                 lines.append(f"Assistant: {turn.content}")
             case Role.TOOL:
-                lines.append(f"Result of {turn.tool_name}: {turn.content[:1500]}")
+                lines.append(f"Result of {turn.tool_name}: {_clip(turn.content)}")
     return "\n".join(lines)
 
 

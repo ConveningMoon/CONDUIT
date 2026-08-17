@@ -8,9 +8,9 @@ planner sees these as JSON schema, so a wrong value costs a round trip and an
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 __all__ = [
     "CreateEmailDraftParams",
@@ -40,6 +40,38 @@ class LeadStage(StrEnum):
     PERDIDO = "perdido"
 
 
+_STAGE_ALIASES: dict[str, str] = {
+    "new": "nuevo",
+    "nurturing": "nutricion",
+    "nurture": "nutricion",
+    "in_progress": "en_proceso",
+    "in progress": "en_proceso",
+    "closed": "cerrado",
+    "won": "cerrado",
+    "lost": "perdido",
+}
+"""English names a planner reaches for, mapped onto the values the CRM stores.
+
+Measured, not imagined: on the golden set both models emitted ``lost`` for
+"perdido" and ``closed`` for "cerrado". Rejecting those costs a whole extra
+planning round trip — the model reads INVALID_ARGUMENTS, corrects itself and
+tries again, so a turn that should take two model calls takes three.
+
+This normalises the request. It does not invent data: every alias maps to a value
+the CRM already defines, and anything unrecognised is still rejected.
+"""
+
+
+def _normalise_stage(value: Any) -> Any:
+    if isinstance(value, str):
+        key = value.strip().casefold().replace("-", "_")
+        return _STAGE_ALIASES.get(key, value)
+    return value
+
+
+Stage = Annotated[LeadStage, BeforeValidator(_normalise_stage)]
+
+
 class Language(StrEnum):
     ES = "es"
     EN = "en"
@@ -67,7 +99,7 @@ class NoParams(_Params):
 
 
 class ListLeadsParams(_Params):
-    stage: LeadStage | None = Field(default=None, description="Filter by funnel stage.")
+    stage: Stage | None = Field(default=None, description="Filter by funnel stage.")
     owner: str | None = Field(
         default=None,
         description="Agent id that owns the lead. Valid ids come from itmano_crm.metadata.",
@@ -94,7 +126,7 @@ class GetLeadParams(_Params):
 
 
 class ListDealsParams(_Params):
-    lead_stage: LeadStage | None = Field(
+    lead_stage: Stage | None = Field(
         default=None,
         description="Stage of the lead that owns the purchase process.",
     )
@@ -142,7 +174,7 @@ class CreateLeadParams(_Params):
 
 class UpdateLeadParams(_Params):
     id: str = Field(min_length=1)
-    stage: LeadStage | None = Field(
+    stage: Stage | None = Field(
         default=None,
         description="New funnel stage. The change is recorded in the lead's status history.",
     )
