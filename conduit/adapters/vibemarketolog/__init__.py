@@ -12,6 +12,7 @@ from conduit.adapters.vibemarketolog.client import (
 )
 from conduit.adapters.vibemarketolog.config import PLANNER_MODELS, VibemarketologSettings
 from conduit.adapters.vibemarketolog.planner import FAILED_REPLY, LlmPlanner, build_system_prompt
+from conduit.adapters.vibemarketolog.tools import register
 
 __all__ = [
     "FAILED_REPLY",
@@ -22,4 +23,5 @@ __all__ = [
     "VibemarketologClient",
     "VibemarketologSettings",
     "build_system_prompt",
+    "register",
 ]

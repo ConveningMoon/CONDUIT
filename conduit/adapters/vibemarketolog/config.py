@@ -39,3 +39,11 @@ class VibemarketologSettings(BaseSettings):
     planner_max_tokens: int = Field(default=600, ge=64)
     planner_effort: str = "low"
     timeout_seconds: float = Field(default=60.0, gt=0)
+
+    image_model: str = "qwen-image-3"
+    """7₽ a call, photorealistic, and accurate at rendering text inside the image
+    — which a promotional graphic needs. ``z-image`` at 1.2₽ is the cheap option
+    used while developing; the expensive tiers run 15-70 RUB and buy nothing this
+    demo shows."""
+
+    image_timeout_seconds: float = Field(default=180.0, gt=0)

@@ -28,10 +28,11 @@ from conduit.adapters.vibemarketolog import (
     VibemarketologClient,
     VibemarketologSettings,
 )
+from conduit.adapters.vibemarketolog import register as register_generation
 from conduit.core.agent import Agent
 from conduit.core.audit import HashChainAuditSink, InMemoryAuditStore
 from conduit.core.guard import DeterministicGuard, GuardSettings, InMemoryGuardStore
-from conduit.core.tools import ToolRegistry
+from conduit.core.tools import SideEffect, ToolRegistry
 from conduit.interfaces.telegram import CommandFastPath, TelegramSettings, load_bindings
 from conduit.interfaces.telegram.bot import run
 
@@ -70,8 +71,23 @@ async def main() -> int:
 
         registry = ToolRegistry()
         register(registry, crm)
+        register_generation(registry, platform)
         registry.freeze()
-        log.info("tools.registered", count=len(registry))
+
+        # Every read, plus exactly one write we chose to allow. Generation spends
+        # money, so it is a WRITE and has to be named here to happen at all; a CRM
+        # write is not on the list and is refused by rule, not by luck.
+        whitelist = frozenset(
+            spec.name
+            for spec in registry.specs()
+            if spec.side_effect is SideEffect.READ or spec.name == "vibemarketolog.generate_image"
+        )
+        log.info(
+            "tools.registered",
+            count=len(registry),
+            allowed=len(whitelist),
+            denied=sorted({spec.name for spec in registry.specs()} - whitelist),
+        )
 
         balance = await platform.balance_rub()
         log.info(
@@ -88,7 +104,10 @@ async def main() -> int:
                     known_tools=frozenset(spec.name for spec in registry.specs()),
                 )
             ),
-            guard=DeterministicGuard(settings=GuardSettings(), store=InMemoryGuardStore()),
+            guard=DeterministicGuard(
+                settings=GuardSettings(allow_writes=True, whitelist=whitelist),
+                store=InMemoryGuardStore(),
+            ),
             audit=HashChainAuditSink(store=InMemoryAuditStore()),
         )
         await run(agent, bindings, telegram)

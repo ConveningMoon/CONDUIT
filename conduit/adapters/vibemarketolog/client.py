@@ -8,6 +8,7 @@ real figure, not an estimate.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from dataclasses import dataclass
 from types import TracebackType
@@ -19,6 +20,15 @@ from conduit.adapters.vibemarketolog.config import VibemarketologSettings
 from conduit.core.telemetry import ModelCall, record_model_call
 
 __all__ = ["Completion", "GenerationError", "VibemarketologClient"]
+
+_FINISHED = frozenset({"complete", "completed", "done", "success", "succeeded", "ready"})
+
+_RESULT_KEYS = ("result_url", "result_urls", "file_url", "display_url", "url", "output")
+
+
+def _has_result(payload: dict[str, Any]) -> bool:
+    """A generation that has handed us a file is finished, whatever it is called."""
+    return any(payload.get(key) for key in _RESULT_KEYS)
 
 
 class GenerationError(RuntimeError):
@@ -140,3 +150,89 @@ class VibemarketologClient:
             )
         )
         return completion
+
+    async def estimate(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Price and validate a generation without spending anything.
+
+        Free, and the honest way to answer "what would that cost?". It is also
+        the only way this adapter touches video at all.
+        """
+        response = await self._http.post(
+            f"{self.settings.base_url.rstrip('/')}/generate/estimate",
+            json=body,
+            headers=self._headers,
+            timeout=self.settings.timeout_seconds,
+        )
+        if not response.is_success:
+            raise GenerationError(
+                f"estimate rejected with {response.status_code}: {response.text[:200]}",
+                status=response.status_code,
+            )
+        estimate: dict[str, Any] = response.json()
+        return estimate
+
+    async def start_generation(self, body: dict[str, Any]) -> str:
+        """Begin a paid generation. Always strict: malformed params are rejected
+        before the debit rather than after it."""
+        payload = {**body, "strict": True}
+        response = await self._http.post(
+            f"{self.settings.base_url.rstrip('/')}/generate",
+            json=payload,
+            headers=self._headers,
+            timeout=self.settings.timeout_seconds,
+        )
+        if not response.is_success:
+            raise GenerationError(
+                f"generation rejected with {response.status_code}: {response.text[:200]}",
+                status=response.status_code,
+                retryable=response.status_code >= 500,
+            )
+        started = response.json()
+        generation_id = started.get("id") or started.get("generation_id")
+        if not generation_id:
+            raise GenerationError(f"no generation id in the reply: {str(started)[:200]}")
+        return str(generation_id)
+
+    async def await_generation(
+        self, generation_id: str, *, poll_seconds: float = 3.0, timeout_seconds: float = 180.0
+    ) -> dict[str, Any]:
+        """Poll until the generation finishes, fails, or we give up waiting.
+
+        Giving up is not the same as it failing: the work was paid for and may
+        still complete, so the message says so rather than implying a refund.
+        """
+        deadline = time.monotonic() + timeout_seconds
+        url = f"{self.settings.base_url.rstrip('/')}/generation/{generation_id}/status"
+
+        while True:
+            response = await self._http.get(
+                url, headers=self._headers, timeout=self.settings.timeout_seconds
+            )
+            if not response.is_success:
+                raise GenerationError(
+                    f"status check returned {response.status_code}",
+                    status=response.status_code,
+                    retryable=True,
+                )
+            payload: dict[str, Any] = response.json()
+            state = str(payload.get("status", "")).lower()
+
+            # The observed terminal value is "complete" — not "completed", and not
+            # "done". Matching a fixed vocabulary alone once cost 180 seconds of
+            # polling an image that had been ready the whole time, so a produced
+            # file also counts as finished, whatever the state is called.
+            if state in _FINISHED or _has_result(payload):
+                return payload
+            if state in {"failed", "error", "cancelled", "canceled", "rejected"}:
+                raise GenerationError(
+                    f"generation {generation_id} finished as {state}: "
+                    f"{str(payload.get('error') or payload.get('message') or '')[:200]}"
+                )
+            if time.monotonic() >= deadline:
+                raise GenerationError(
+                    f"generation {generation_id} was still {state or 'pending'} after "
+                    f"{timeout_seconds:g}s. It was paid for and may yet finish; "
+                    f"check its status rather than starting another.",
+                    retryable=False,
+                )
+            await asyncio.sleep(poll_seconds)
