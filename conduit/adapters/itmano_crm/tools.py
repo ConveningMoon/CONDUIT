@@ -172,10 +172,13 @@ def register(registry: ToolRegistry, client: ItmanoCrmClient) -> None:
         _spec(
             "metadata",
             "getMetadata",
-            "List the values this CRM actually accepts: funnel stages, quality bands, "
-            "urgencies, pipelines, agents (owners), channels and currency. Call this "
-            "before filtering or creating anything, instead of guessing an id or an "
-            "enum. This CRM has no custom fields; that list is always empty.",
+            "The values this CRM uses: funnel stages, quality bands, urgencies, "
+            "pipelines, agent ids to use as 'owner', channels and currency. Call it "
+            "when someone asks what values exist, and before creating a lead, which "
+            "needs a real agent id. Do NOT call it as a preliminary step before "
+            "filtering: every tool that accepts a stage already lists the valid "
+            "stages in its own signature, so filter directly. This CRM has no custom "
+            "fields; that list is always empty.",
             NoParams,
             client,
         ),
