@@ -390,11 +390,11 @@ class TestStartupAssertion:
     async def test_verify_refuses_a_different_tenant(self, crm: ItmanoCrmClient) -> None:
         respx.get(f"{API}/whoami").mock(
             return_value=httpx.Response(
-                200, json={**WHOAMI, "tenant": {"id": "tenant-aj", "name": "A&J"}}
+                200, json={**WHOAMI, "tenant": {"id": "tenant-not-ours", "name": "Someone Else"}}
             )
         )
 
-        with pytest.raises(ConfigurationError, match="tenant-aj"):
+        with pytest.raises(ConfigurationError, match="tenant-not-ours"):
             await crm.verify()
 
     @respx.mock

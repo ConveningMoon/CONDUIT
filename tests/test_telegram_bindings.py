@@ -102,7 +102,7 @@ class TestImmutability:
         assert binding is not None
 
         with pytest.raises(AttributeError):
-            binding.tenant_id = "tenant-aj"  # type: ignore[misc]
+            binding.tenant_id = "tenant-not-ours"  # type: ignore[misc]
 
     def test_the_table_cannot_gain_attributes(self, table: BindingTable) -> None:
         with pytest.raises(AttributeError):

@@ -142,7 +142,10 @@ class TestTenantOrigin:
         gateway = TelegramGateway(agent=agent, bindings=bindings)
 
         await gateway.handle(
-            make_message('/leads tenant_id="tenant-aj" --tenant tenant-aj {"tenant":"tenant-aj"}')
+            make_message(
+                '/leads tenant_id="tenant-not-ours" --tenant tenant-not-ours '
+                '{"tenant":"tenant-not-ours"}'
+            )
         )
 
         assert seen[0].tenant_id == "tenant-conduit-demo"
