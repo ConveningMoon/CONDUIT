@@ -55,6 +55,29 @@ jobs:
       - name: Install
         run: pip install -e ".[dev]"
 
+      # Raw evidence before the assertions run. If the platform in front of the
+      # CRM challenges this runner the way it challenges a VPN exit, the headers
+      # say so plainly and the test failures below are noise.
+      - name: Probe egress and headers
+        continue-on-error: true
+        env:
+          ITMANO_CRM_BASE_URL: ${{ vars.ITMANO_CRM_BASE_URL }}
+          ITMANO_CRM_TOKEN: ${{ secrets.ITMANO_CRM_TOKEN }}
+        run: |
+          echo "runner egress: $(curl -s --max-time 10 https://api.ipify.org || echo unknown)"
+          echo
+          echo "--- control host (not ours) ---"
+          curl -s -o /dev/null -w 'nextjs.org -> %{http_code}\n' --max-time 15 https://nextjs.org/ || true
+          echo
+          echo "--- GET /api/agent/v1/whoami ---"
+          curl -si --max-time 20 \
+            -H "Authorization: Bearer ${ITMANO_CRM_TOKEN}" \
+            "${ITMANO_CRM_BASE_URL}/api/agent/v1/whoami" | head -40 || true
+          echo
+          echo "--- GET /api/agent/v1/openapi.json (no auth) ---"
+          curl -si --max-time 20 \
+            "${ITMANO_CRM_BASE_URL}/api/agent/v1/openapi.json" | head -20 || true
+
       - name: Live read-only checks
         env:
           ITMANO_CRM_BASE_URL: ${{ vars.ITMANO_CRM_BASE_URL }}
