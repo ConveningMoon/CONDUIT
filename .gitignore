@@ -28,6 +28,12 @@ coverage.xml
 .DS_Store
 Thumbs.db
 
+# The live binding table carries real chat and user ids. The committed artifact
+# is config/telegram_bindings.example.toml. In a real deployment this file
+# belongs in version control too — in a private ops repository, so that changing
+# who may act stays a reviewable diff.
+config/telegram_bindings.toml
+
 # Graph working directory. The committed map is .graphify/context.md.
 graphify-out/
 
