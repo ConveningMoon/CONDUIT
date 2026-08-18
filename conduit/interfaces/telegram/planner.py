@@ -260,11 +260,15 @@ STEP_PHRASES: dict[str, str] = {
 }
 
 SLOW_TOOLS: dict[str, str] = {
-    "vibemarketolog.generate_image": "about 80 seconds",
+    "vibemarketolog.generate_image": "a minute or two",
 }
 """Waits long enough that silence reads as a crash. Announce the duration
 *before* it starts: an expected wait is patience, an unexplained one is a bug.
-Measured, not guessed — 80.3s for z-image and 80.4s for qwen-image-3."""
+
+Deliberately a range rather than a number. Generation alone is ~80s for both
+z-image and qwen-image-3, but a full turn measured 104s once the free price
+checks and the two planner passes are counted. Promising "80 seconds" and taking
+104 is worse than promising nothing: the person starts counting."""
 
 
 def describe_step(call: ToolCall, spec: ToolSpec) -> str:

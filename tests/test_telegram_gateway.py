@@ -330,10 +330,14 @@ class TestStepDescriptions:
         assert "spends money" in line
 
     def test_a_slow_tool_states_the_wait_up_front(self) -> None:
-        """An expected wait is patience; an unexplained one reads as a crash."""
+        """An expected wait is patience; an unexplained one reads as a crash.
+
+        A range, not a number: a full generation turn measured 104s against the
+        80s the model alone takes, and an overrun promise is worse than none.
+        """
         line = self.describe("vibemarketolog.generate_image", {}, SideEffect.WRITE)
 
-        assert "80 seconds" in line
+        assert "Takes a minute or two" in line
 
     def test_an_unknown_tool_still_gets_a_line(self) -> None:
         assert "some.new_tool" in self.describe("some.new_tool", {})
