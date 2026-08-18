@@ -201,7 +201,7 @@ class StepReporter(Protocol):
     moment it is made rather than after the answer comes out wrong.
     """
 
-    async def __call__(self, call: ToolCall, spec: ToolSpec) -> None: ...
+    async def __call__(self, call: ToolCall, spec: ToolSpec, decision: GuardDecision) -> None: ...
 
 
 class StopReason(StrEnum):
@@ -327,13 +327,17 @@ class Agent:
         decision = await self.guard.review(call, spec, ctx)
         await self.audit.record(self._event(AuditPhase.INTENT, call, spec, ctx, decision=decision))
 
+        if self.on_step is not None:
+            # Announced whatever the verdict: a refusal is the most interesting
+            # thing that can happen in a turn, and hiding it until the final
+            # answer wastes the moment. Reporting must never be able to break
+            # the turn it narrates.
+            try:
+                await self.on_step(call, spec, decision)
+            except Exception:
+                pass
+
         if decision.allowed:
-            if self.on_step is not None:
-                # Reporting must never be able to break the turn it narrates.
-                try:
-                    await self.on_step(call, spec)
-                except Exception:
-                    pass
             result = await self.registry.invoke(call, ctx)
         else:
             result = ToolResult.rejected(decision.reason)

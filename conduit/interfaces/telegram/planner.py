@@ -17,7 +17,9 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from conduit.core.agent import Plan, Planner, PlanRequest, Role
+from pydantic import ValidationError
+
+from conduit.core.agent import GuardDecision, Plan, Planner, PlanRequest, Role
 from conduit.core.tools import SideEffect, ToolCall, ToolSpec
 
 __all__ = ["HELP", "CommandFastPath", "CommandPlanner", "describe_step"]
@@ -280,23 +282,45 @@ filter, the id, the model being paid for.
 """
 
 
-def describe_step(call: ToolCall, spec: ToolSpec) -> str:
+def describe_step(call: ToolCall, spec: ToolSpec, decision: GuardDecision) -> str:
     """One line saying what the agent decided, before it acts on it.
 
-    Shows the arguments too. A wrong filter is then visible at the moment it is
-    chosen rather than inferred from a wrong answer two steps later.
+    Shows the arguments, so a wrong filter is visible at the moment it is chosen
+    rather than inferred from a wrong answer two steps later — and shows them as
+    the tool will receive them, not as the planner typed them. A planner asking
+    for stage "lost" produces a perfectly good call because the adapter maps it
+    to "perdido", but announcing "lost" next to a CRM that has no such stage
+    reads as a bug on screen.
+
+    A refused call is announced too. The guard stopping something is the most
+    interesting thing that can happen in a turn, and it would otherwise be
+    visible only in the final answer, after the moment has passed.
     """
     phrase = STEP_PHRASES.get(call.name, f"Calling {call.name}")
     detail = ", ".join(
         f"{key}={value}"
-        for key, value in sorted(call.arguments.items())
+        for key, value in sorted(_as_executed(call, spec).items())
         if value is not None and key not in NOISE
     )
-    line = f"{phrase}{f' ({detail})' if detail else ''}…"
+    subject = f"{phrase}{f' ({detail})' if detail else ''}"
 
+    if not decision.allowed:
+        return f"Refused: {subject.lower()}.\n{decision.reason.capitalize()}."
+
+    line = f"{subject}…"
     if spec.side_effect is SideEffect.WRITE:
         line += "\nThis one spends money."
     slow = SLOW_TOOLS.get(call.name)
     if slow:
         line += f" Takes {slow}."
     return line
+
+
+def _as_executed(call: ToolCall, spec: ToolSpec) -> dict[str, Any]:
+    """The arguments as the tool will actually receive them, defaults and all."""
+    try:
+        return dict(spec.params.model_validate(call.arguments).model_dump(mode="json"))
+    except ValidationError:
+        # Invalid arguments are still worth announcing; the registry will reject
+        # them a moment later and the planner will see why.
+        return dict(call.arguments)

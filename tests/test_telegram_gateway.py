@@ -304,18 +304,40 @@ class TestRendering:
 class TestStepDescriptions:
     """The 80-second wait is only bearable if it is announced."""
 
-    def describe(self, name: str, arguments: dict, side_effect=SideEffect.READ) -> str:
+    def describe(
+        self,
+        name: str,
+        arguments: dict,
+        side_effect=SideEffect.READ,
+        decision=None,
+        params=None,
+    ) -> str:
+        from conduit.core.agent import GuardDecision
         from conduit.core.tools import ToolSpec
         from conduit.interfaces.telegram.planner import describe_step
         from tests.conftest import NoParams
 
         return describe_step(
             ToolCall(id="c1", name=name, arguments=arguments),
-            ToolSpec(name=name, description="x", params=NoParams, side_effect=side_effect),
+            ToolSpec(
+                name=name,
+                description="x",
+                params=params or NoParams,
+                side_effect=side_effect,
+            ),
+            decision or GuardDecision.allow(rule="test"),
         )
 
     def test_a_read_says_what_it_is_looking_for(self) -> None:
-        line = self.describe("itmano_crm.list_leads", {"stage": "perdido", "limit": 10})
+        from conduit.adapters.itmano_crm.models import ListLeadsParams
+
+        # The real parameter model, because the line is rendered from validated
+        # arguments and a mismatched model would silently drop them all.
+        line = self.describe(
+            "itmano_crm.list_leads",
+            {"stage": "perdido", "limit": 10},
+            params=ListLeadsParams,
+        )
 
         assert "Looking up leads" in line
         assert "stage=perdido" in line
@@ -362,3 +384,54 @@ class TestStepReporterSafety:
 
         assert reply == "done"
         assert len(seen) == 1
+
+
+class TestRefusalsAreAnnounced:
+    """A refusal is the most interesting thing a turn can contain. Announcing it
+    only in the final answer wastes the moment it happens."""
+
+    def describe_refused(self, name: str) -> str:
+        from conduit.core.agent import GuardDecision
+        from conduit.core.tools import ToolSpec
+        from conduit.interfaces.telegram.planner import describe_step
+        from tests.conftest import NoParams
+
+        return describe_step(
+            ToolCall(id="c1", name=name, arguments={}),
+            ToolSpec(name=name, description="x", params=NoParams, side_effect=SideEffect.WRITE),
+            GuardDecision.deny("itmano_crm.update_lead is not on the whitelist", "not_whitelisted"),
+        )
+
+    def test_a_denied_call_says_so_and_says_why(self) -> None:
+        line = self.describe_refused("itmano_crm.update_lead")
+
+        assert line.startswith("Refused:")
+        assert "not on the whitelist" in line
+
+    def test_a_denied_call_does_not_claim_to_be_spending(self) -> None:
+        """Nothing was spent, so the money warning would be a lie."""
+        assert "spends money" not in self.describe_refused("vibemarketolog.generate_image")
+
+
+class TestArgumentsAreShownAsExecuted:
+    def test_an_english_alias_is_shown_as_the_crm_stores_it(self) -> None:
+        """The planner may say "lost"; the CRM has no such stage. Showing the raw
+        word next to a correct result reads as a bug on screen."""
+        from conduit.adapters.itmano_crm.models import ListLeadsParams
+        from conduit.core.agent import GuardDecision
+        from conduit.core.tools import ToolSpec
+        from conduit.interfaces.telegram.planner import describe_step
+
+        line = describe_step(
+            ToolCall(id="c1", name="itmano_crm.list_leads", arguments={"stage": "lost"}),
+            ToolSpec(
+                name="itmano_crm.list_leads",
+                description="x",
+                params=ListLeadsParams,
+                side_effect=SideEffect.READ,
+            ),
+            GuardDecision.allow(rule="test"),
+        )
+
+        assert "stage=perdido" in line
+        assert "lost" not in line

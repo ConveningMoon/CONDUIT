@@ -17,7 +17,7 @@ import structlog
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message
 
-from conduit.core.agent import Agent, StepReporter
+from conduit.core.agent import Agent, GuardDecision, StepReporter
 from conduit.core.telemetry import ModelCall, turn_ledger
 from conduit.core.tools import ToolCall, ToolContext, ToolSpec
 from conduit.interfaces.telegram.bindings import BindingTable, Resolution
@@ -125,8 +125,8 @@ class TelegramGateway:
         if bot is None:
             return None
 
-        async def report(call: ToolCall, spec: ToolSpec) -> None:
-            await bot.send_message(message.chat.id, describe_step(call, spec))
+        async def report(call: ToolCall, spec: ToolSpec, decision: GuardDecision) -> None:
+            await bot.send_message(message.chat.id, describe_step(call, spec, decision))
 
         return report
 
