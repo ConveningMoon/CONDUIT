@@ -8,11 +8,13 @@ something ever did, ``ToolRegistry.invoke`` catches it anyway.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from types import TracebackType
 from typing import Any, Self
 
 import httpx
+import structlog
 from pydantic import BaseModel, ConfigDict, JsonValue
 
 from conduit.adapters.itmano_crm import errors
@@ -21,6 +23,8 @@ from conduit.adapters.itmano_crm.contract import Operation, contract_version, op
 from conduit.core.tools import ToolErrorCode
 
 __all__ = ["CrmError", "CrmResponse", "ItmanoCrmClient", "WhoAmI"]
+
+log = structlog.get_logger(__name__)
 
 
 class CrmError(Exception):
@@ -35,8 +39,12 @@ class CrmError(Exception):
         status: int | None = None,
         crm_code: str | None = None,
         retry_after_seconds: float | None = None,
+        mitigated: bool = False,
     ) -> None:
         super().__init__(message)
+        self.mitigated = mitigated
+        """True when the platform in front of the CRM answered instead of the CRM.
+        Transient by nature, and worth retrying — unlike a real refusal."""
         self.code = code
         self.message = message
         self.retryable = retryable
@@ -203,6 +211,19 @@ class ItmanoCrmClient:
         crm_code: str | None = None
         detail = response.reason_phrase or "no detail"
 
+        # A challenge from the hosting platform is not the CRM refusing us. Saying
+        # which one happened turns a confusing 403 into an obvious one.
+        mitigation = response.headers.get("x-vercel-mitigated")
+        if mitigation:
+            return CrmError(
+                ToolErrorCode.UPSTREAM_ERROR,
+                f"{operation_id} never reached the CRM: the hosting platform "
+                f"answered with a {mitigation!r} challenge ({status}).",
+                retryable=True,
+                status=status,
+                mitigated=True,
+            )
+
         try:
             payload = response.json()
         except ValueError:
@@ -242,14 +263,38 @@ class ItmanoCrmClient:
         response = await self.call("whoami")
         return WhoAmI.model_validate(response.data)
 
-    async def verify(self) -> WhoAmI:
+    async def verify(self, *, attempts: int = 3, backoff_seconds: float = 2.0) -> WhoAmI:
         """Refuse to serve anything if the server is not who we expect.
 
         Called once before tools are registered. A mismatch here means the
         deployment is pointed at the wrong tenant or the wrong environment, and
         the only safe response is to not start.
+
+        Retried, because the failure that actually happens is a transient
+        challenge from the hosting platform rather than a real refusal, and one
+        unlucky moment at startup should not cost the CRM tools for the whole
+        run. A definite answer — wrong scope, bad token — is never retried.
         """
-        identity = await self.whoami()
+        for attempt in range(1, attempts + 1):
+            try:
+                identity = await self.whoami()
+                break
+            except CrmError as exc:
+                worth_retrying = exc.mitigated or exc.retryable
+                if attempt == attempts or not worth_retrying:
+                    raise
+                log.warning(
+                    "crm.verify_retry",
+                    attempt=attempt,
+                    of=attempts,
+                    error=str(exc)[:160],
+                )
+                await asyncio.sleep(backoff_seconds * attempt)
+        else:  # pragma: no cover - the loop always breaks or raises
+            raise CrmError(ToolErrorCode.UPSTREAM_ERROR, "verify exhausted its attempts")
+
+        if attempt > 1:
+            log.info("crm.verify_recovered", attempts=attempt)
 
         mismatches: list[str] = []
         if identity.tenant_id != self.settings.expected_tenant:

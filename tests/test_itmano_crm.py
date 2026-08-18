@@ -18,7 +18,7 @@ import respx
 from pydantic import SecretStr, ValidationError
 
 from conduit.adapters.itmano_crm import ItmanoCrmClient, ItmanoCrmSettings
-from conduit.adapters.itmano_crm.client import ConfigurationError
+from conduit.adapters.itmano_crm.client import ConfigurationError, CrmError
 from conduit.adapters.itmano_crm.contract import operation, operations
 from conduit.adapters.itmano_crm.models import CreateLeadParams, LeadStage, ListLeadsParams
 from conduit.adapters.itmano_crm.tools import agent_tool_operations, register
@@ -443,3 +443,62 @@ class TestStageAliases:
 
         assert ListDealsParams(lead_stage="lost").lead_stage is LeadStage.PERDIDO  # type: ignore[arg-type]
         assert UpdateLeadParams(id="x", stage="won").stage is LeadStage.CERRADO  # type: ignore[arg-type]
+
+
+class TestVerifyRetry:
+    """The failure that actually happens at startup is a transient challenge from
+    the hosting platform, not the CRM refusing us. One unlucky moment should not
+    cost the CRM tools for the whole run."""
+
+    @respx.mock
+    async def test_a_platform_challenge_is_retried_and_recovers(self, crm: ItmanoCrmClient) -> None:
+        route = respx.get(f"{API}/whoami").mock(
+            side_effect=[
+                httpx.Response(403, headers={"x-vercel-mitigated": "challenge"}, text="<html>"),
+                httpx.Response(200, json=WHOAMI),
+            ]
+        )
+
+        identity = await crm.verify(backoff_seconds=0.0)
+
+        assert identity.tenant_id == "tenant-conduit-demo"
+        assert route.call_count == 2
+
+    @respx.mock
+    async def test_it_gives_up_after_the_last_attempt(self, crm: ItmanoCrmClient) -> None:
+        route = respx.get(f"{API}/whoami").mock(
+            return_value=httpx.Response(
+                403, headers={"x-vercel-mitigated": "challenge"}, text="<html>"
+            )
+        )
+
+        with pytest.raises(CrmError) as caught:
+            await crm.verify(attempts=3, backoff_seconds=0.0)
+
+        assert route.call_count == 3
+        assert caught.value.mitigated
+        assert "never reached the CRM" in str(caught.value)
+
+    @respx.mock
+    async def test_a_real_refusal_is_not_retried(self, crm: ItmanoCrmClient) -> None:
+        """A bad token is a definite answer. Repeating it just wastes startup."""
+        route = respx.get(f"{API}/whoami").mock(
+            return_value=httpx.Response(401, json=error_body("unauthorized", "token revoked"))
+        )
+
+        with pytest.raises(CrmError):
+            await crm.verify(attempts=3, backoff_seconds=0.0)
+
+        assert route.call_count == 1
+
+    @respx.mock
+    async def test_a_wrong_tenant_is_still_fatal(self, crm: ItmanoCrmClient) -> None:
+        """Retrying must not soften the check it exists for."""
+        respx.get(f"{API}/whoami").mock(
+            return_value=httpx.Response(
+                200, json={**WHOAMI, "tenant": {"id": "tenant-not-ours", "name": "Someone Else"}}
+            )
+        )
+
+        with pytest.raises(ConfigurationError):
+            await crm.verify(backoff_seconds=0.0)
