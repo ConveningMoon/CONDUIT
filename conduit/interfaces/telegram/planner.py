@@ -259,6 +259,10 @@ STEP_PHRASES: dict[str, str] = {
     "itmano_crm.whoami": "Checking which tenant I am bound to",
     "vibemarketolog.estimate_generation": "Pricing that, free of charge",
     "vibemarketolog.generate_image": "Generating the image",
+    "itmano_crm.update_lead": "Changing that lead",
+    "itmano_crm.create_lead": "Creating a lead",
+    "itmano_crm.create_note": "Attaching a note",
+    "itmano_crm.draft_email": "Drafting an email",
 }
 
 SLOW_TOOLS: dict[str, str] = {
@@ -305,7 +309,7 @@ def describe_step(call: ToolCall, spec: ToolSpec, decision: GuardDecision) -> st
     subject = f"{phrase}{f' ({detail})' if detail else ''}"
 
     if not decision.allowed:
-        return f"Refused: {subject.lower()}.\n{decision.reason.capitalize()}."
+        return f"Refused — {subject.lower()}.\n{decision.reason}"
 
     line = f"{subject}…"
     if spec.side_effect is SideEffect.WRITE:
