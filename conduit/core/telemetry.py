@@ -28,6 +28,15 @@ class ModelCall:
     latency_ms: int
     input_tokens: int = 0
     output_tokens: int = 0
+    cached_tokens: int = 0
+    """Prompt tokens served from the provider's cache.
+
+    Worth carrying separately rather than folding into ``input_tokens``: the
+    platform bills cache reads at a tenth of the input rate, and a tool
+    catalogue is identical on every call, so this is where most of a planning
+    prompt ends up. Without it the input count looks impossibly small — three
+    tokens for a prompt that is plainly longer than three tokens."""
+
     retry: bool = False
     """True when this call only happened because the previous one came back
     unparseable. Counted separately: it is waste, and waste worth seeing."""

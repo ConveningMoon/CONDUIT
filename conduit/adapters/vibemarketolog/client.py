@@ -48,6 +48,7 @@ class Completion:
     latency_ms: int
     input_tokens: int
     output_tokens: int
+    cached_tokens: int = 0
 
 
 class VibemarketologClient:
@@ -138,6 +139,7 @@ class VibemarketologClient:
             latency_ms=elapsed_ms,
             input_tokens=int(usage.get("input") or 0),
             output_tokens=int(usage.get("output") or 0),
+            cached_tokens=int(usage.get("cache_read") or 0),
         )
         record_model_call(
             ModelCall(
@@ -146,6 +148,7 @@ class VibemarketologClient:
                 latency_ms=completion.latency_ms,
                 input_tokens=completion.input_tokens,
                 output_tokens=completion.output_tokens,
+                cached_tokens=completion.cached_tokens,
                 retry=retry,
             )
         )

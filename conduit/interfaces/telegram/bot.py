@@ -158,6 +158,7 @@ class TelegramGateway:
         lines = [
             f"• {entry.model}  {entry.cost_rub:.2f} RUB  {entry.latency_ms} ms"
             f"  in/out {entry.input_tokens}/{entry.output_tokens}"
+            + (f"  cached {entry.cached_tokens}" if entry.cached_tokens else "")
             + ("  (retry after an unparseable reply)" if entry.retry else "")
             for entry in entries
         ]

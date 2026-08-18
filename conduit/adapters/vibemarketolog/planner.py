@@ -79,12 +79,25 @@ class _PlannerOutput(BaseModel):
 
 
 def _render_tool(spec: ToolSpec) -> str:
-    """Compact one-tool description: enough to choose and to fill arguments."""
+    """One tool as the planner sees it: signature, purpose, per-argument notes.
+
+    The argument notes are not padding. Everything an adapter knows about *how*
+    to fill a field — which model to pay for and when, that an owner id has to be
+    a real one, that a cursor only works with the filters that produced it —
+    lives in the pydantic field description, and for a while none of it reached
+    the model at all: only the tool-level sentence was sent. Rules written on
+    individual arguments were dead weight, and the planner picked the cheapest
+    image model every time regardless of whether the request needed legible text.
+
+    The extra length costs almost nothing. The catalogue is byte-identical on
+    every call, so the platform serves it from cache at a tenth of the input rate.
+    """
     schema = spec.params.model_json_schema()
     properties: dict[str, Any] = schema.get("properties", {})
     required = set(schema.get("required", []))
 
     parts: list[str] = []
+    notes: list[str] = []
     for name, definition in properties.items():
         detail = definition.get("enum") or definition.get("type") or "any"
         if isinstance(detail, list) and definition.get("enum"):
@@ -92,8 +105,14 @@ def _render_tool(spec: ToolSpec) -> str:
         marker = "" if name in required else "?"
         parts.append(f"{name}{marker}: {detail}")
 
-    signature = ", ".join(parts)
-    return f"- {spec.name}({signature})\n    {spec.description}"
+        note = definition.get("description")
+        if note:
+            notes.append(f"      {name}: {note}")
+
+    rendered = f"- {spec.name}({', '.join(parts)})\n    {spec.description}"
+    if notes:
+        rendered += "\n" + "\n".join(notes)
+    return rendered
 
 
 def build_system_prompt(tools: tuple[ToolSpec, ...]) -> str:

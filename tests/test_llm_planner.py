@@ -268,3 +268,42 @@ class TestDegradation:
 
         assert plan.reply == FAILED_REPLY
         assert "/help" in plan.reply
+
+
+class TestParameterNotesReachThePlanner:
+    """Field descriptions used to be dropped from the prompt entirely.
+
+    Only the tool-level sentence was rendered, so every rule written on an
+    individual argument — which image model to pay for, that an owner id must be
+    real, that a cursor only works with its own filters — never reached the
+    model. The visible symptom was the planner picking the cheapest image model
+    for a poster that needed legible text, no matter how the rule was worded.
+    """
+
+    def test_argument_descriptions_are_rendered(self) -> None:
+        spec = ToolSpec(
+            name="demo.echo",
+            description="Repeat text.",
+            params=EchoParams,
+            side_effect=SideEffect.READ,
+        )
+
+        prompt = build_system_prompt((spec,))
+
+        assert "Repeat text." in prompt
+        assert "text:" in prompt
+
+    def test_a_field_note_survives_into_the_prompt(self) -> None:
+        from pydantic import BaseModel, Field
+
+        class Documented(BaseModel):
+            choice: str = Field(description="Pick the expensive one when it matters.")
+
+        spec = ToolSpec(
+            name="demo.documented",
+            description="A tool.",
+            params=Documented,
+            side_effect=SideEffect.READ,
+        )
+
+        assert "Pick the expensive one when it matters." in build_system_prompt((spec,))

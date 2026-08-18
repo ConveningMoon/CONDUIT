@@ -271,6 +271,15 @@ checks and the two planner passes are counted. Promising "80 seconds" and taking
 104 is worse than promising nothing: the person starts counting."""
 
 
+NOISE = frozenset({"limit", "cursor", "prompt", "aspect_ratio"})
+"""Arguments not worth showing.
+
+Paging and framing are not decisions anyone is judging; the prompt is far too
+long for one line. What stays is what a reader would want to second-guess — the
+filter, the id, the model being paid for.
+"""
+
+
 def describe_step(call: ToolCall, spec: ToolSpec) -> str:
     """One line saying what the agent decided, before it acts on it.
 
@@ -281,7 +290,7 @@ def describe_step(call: ToolCall, spec: ToolSpec) -> str:
     detail = ", ".join(
         f"{key}={value}"
         for key, value in sorted(call.arguments.items())
-        if value is not None and key not in {"limit", "cursor", "prompt"}
+        if value is not None and key not in NOISE
     )
     line = f"{phrase}{f' ({detail})' if detail else ''}…"
 

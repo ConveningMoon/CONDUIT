@@ -57,15 +57,16 @@ class GenerateImageParams(_Params):
         ),
     )
     aspect_ratio: ASPECT_RATIOS = "16:9"
-    model: IMAGE_MODELS | None = Field(
-        default=None,
+    model: IMAGE_MODELS = Field(
         description=(
-            "Which model to spend on. 'z-image' costs 1.2 RUB and is fine for a "
-            "plain photographic scene. 'qwen-image-3' costs 7 RUB and is the one "
-            "to pick when the image needs legible text in it or convincing "
-            "photorealism. Both take about 80 seconds, so this is a price-versus-"
-            "quality choice, not a speed one. Say which you chose and why before "
-            "calling. Leave empty for the configured default."
+            "ALWAYS set this explicitly. Decide with this rule, in order: "
+            "(1) if any words, a sign, a price, a logo or a caption must appear "
+            "INSIDE the image, use 'qwen-image-3' (7 RUB) — cheaper models render "
+            "text as unreadable shapes and the image is wasted; "
+            "(2) otherwise use 'z-image' (1.2 RUB), which is plenty for a plain "
+            "photographic scene. "
+            "Both take about the same time, so this is price against quality and "
+            "never speed. State which you picked and why in your reply."
         ),
     )
 
@@ -88,7 +89,7 @@ def register(registry: ToolRegistry, client: VibemarketologClient) -> None:
     """Publish the generation tools. Call before ``registry.freeze()``."""
 
     async def generate_image(ctx: ToolContext, params: GenerateImageParams) -> ToolResult:
-        model = params.model or client.settings.image_model
+        model = params.model
 
         # Free, and it is what makes the choice inspectable: the answer carries
         # what every candidate would have cost, not just what this one did.

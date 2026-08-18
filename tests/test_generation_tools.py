@@ -172,7 +172,7 @@ class TestGenerating:
             ToolCall(
                 id="c1",
                 name="vibemarketolog.generate_image",
-                arguments={"prompt": "a bright coastal house at sunset"},
+                arguments={"prompt": "a bright coastal house at sunset", "model": "z-image"},
             ),
             ctx,
         )
@@ -199,7 +199,7 @@ class TestGenerating:
             ToolCall(
                 id="c1",
                 name="vibemarketolog.generate_image",
-                arguments={"prompt": "a house"},
+                arguments={"prompt": "a house", "model": "z-image"},
             ),
             ctx,
         )
@@ -220,7 +220,7 @@ class TestGenerating:
             ToolCall(
                 id="c1",
                 name="vibemarketolog.generate_image",
-                arguments={"prompt": "a house"},
+                arguments={"prompt": "a house", "model": "z-image"},
             ),
             ctx,
         )
@@ -245,7 +245,7 @@ class TestGenerating:
             ToolCall(
                 id="c1",
                 name="vibemarketolog.generate_image",
-                arguments={"prompt": "a house"},
+                arguments={"prompt": "a house", "model": "z-image"},
             ),
             ctx,
         )
@@ -311,7 +311,7 @@ class TestTerminalStates:
             ToolCall(
                 id="c1",
                 name="vibemarketolog.generate_image",
-                arguments={"prompt": "a house"},
+                arguments={"prompt": "a house", "model": "z-image"},
             ),
             ctx,
         )
@@ -335,7 +335,7 @@ class TestTerminalStates:
             ToolCall(
                 id="c1",
                 name="vibemarketolog.generate_image",
-                arguments={"prompt": "a house"},
+                arguments={"prompt": "a house", "model": "z-image"},
             ),
             ctx,
         )
@@ -343,3 +343,17 @@ class TestTerminalStates:
         assert result.status is ToolStatus.OK
         assert isinstance(result.data, dict)
         assert result.data["url"] == "https://x/y.png"
+
+
+class TestModelIsAlwaysChosen:
+    def test_the_model_has_no_default(self) -> None:
+        """An optional field renders as "model?" in the planner prompt, and the
+        planner then skips it every time — measured. Making it required is what
+        turns "the agent picks a model on price" from a claim into something
+        visible in the progress line."""
+        with pytest.raises(ValidationError):
+            GenerateImageParams(prompt="a house")
+
+    def test_an_unlisted_model_is_refused(self) -> None:
+        with pytest.raises(ValidationError):
+            GenerateImageParams(prompt="a house", model="seedream-5-pro")  # type: ignore[arg-type]
