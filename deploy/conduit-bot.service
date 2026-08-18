@@ -8,8 +8,8 @@ Wants=network-online.target
 Type=simple
 User=conduit
 Group=conduit
-WorkingDirectory=/opt/conduit
-EnvironmentFile=/opt/conduit/.env
+WorkingDirectory=/opt/conduit/CONDUIT
+EnvironmentFile=/opt/conduit/CONDUIT/.env
 ExecStart=/opt/conduit/.venv/bin/python scripts/run_telegram_bot.py
 
 # Long polling, so a restart is cheap and never loses an inbound request.
@@ -23,11 +23,12 @@ MemoryMax=512M
 TasksMax=64
 
 # The bot opens outbound connections and reads its own directory. Nothing else.
+# It writes no file anywhere — audit log and guard counters are in-memory — so
+# the whole filesystem can stay read-only; no ReadWritePaths is needed.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/conduit
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
