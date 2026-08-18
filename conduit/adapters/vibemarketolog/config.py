@@ -39,6 +39,17 @@ class VibemarketologSettings(BaseSettings):
     planner_max_tokens: int = Field(default=600, ge=64)
     planner_effort: str = "low"
     timeout_seconds: float = Field(default=60.0, gt=0)
+    """Ceiling for calls with no tighter limit of their own."""
+
+    planner_timeout_seconds: float = Field(default=25.0, gt=0)
+    """Much tighter than the general one, and deliberately so.
+
+    A planning call takes 2.4-3.6 seconds when the platform is healthy. Giving it
+    sixty means that when the platform is *unhealthy* the user stares at a typing
+    indicator for a minute before being told to use a command instead. Twenty-five
+    is roughly seven times the measured worst case — generous enough never to cut
+    off a slow-but-working call, short enough that a dead API degrades to the
+    command fast path while the person is still paying attention."""
 
     image_model: str = "qwen-image-3"
     """7₽ a call, photorealistic, and accurate at rendering text inside the image

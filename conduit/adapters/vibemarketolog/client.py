@@ -113,7 +113,7 @@ class VibemarketologClient:
                 f"{self.settings.base_url.rstrip('/')}/generate",
                 json=body,
                 headers=self._headers,
-                timeout=self.settings.timeout_seconds,
+                timeout=self.settings.planner_timeout_seconds,
             )
         except httpx.TimeoutException as exc:
             raise GenerationError(f"{chosen} timed out: {exc}", retryable=True) from exc
