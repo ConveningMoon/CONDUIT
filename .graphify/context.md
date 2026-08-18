@@ -4,12 +4,12 @@
 - cluster-only mode — file stats not available
 
 ## Summary
-- 903 nodes · 2162 edges · 78 communities (34 shown, 44 thin omitted)
+- 903 nodes · 2162 edges · 77 communities (33 shown, 44 thin omitted)
 - Extraction: 82% EXTRACTED · 18% INFERRED · 0% AMBIGUOUS · INFERRED: 387 edges (avg confidence: 0.51)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a928a2ee`
+- Built from commit: `bb9e58ef`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -34,7 +34,6 @@
 - Community 17
 - Community 18
 - Community 19
-- Community 20
 - Community 21
 - Community 22
 - Community 23
@@ -108,19 +107,19 @@
 ## Surprising Connections (you probably didn't know these)
 - `EchoParams` --uses--> `SideEffect`  [INFERRED]
   tests/conftest.py → conduit/core/tools.py
+- `NoParams` --uses--> `SideEffect`  [INFERRED]
+  tests/conftest.py → conduit/core/tools.py
 - `PermissiveGuard` --uses--> `SideEffect`  [INFERRED]
   tests/test_agent.py → conduit/core/tools.py
 - `ScriptedPlanner` --uses--> `SideEffect`  [INFERRED]
   tests/test_agent.py → conduit/core/tools.py
 - `TestInvoke` --uses--> `SideEffect`  [INFERRED]
   tests/test_tools.py → conduit/core/tools.py
-- `TestRegistry` --uses--> `SideEffect`  [INFERRED]
-  tests/test_tools.py → conduit/core/tools.py
 
 ## Import Cycles
 - None detected.
 
-## Communities (78 total, 44 thin omitted)
+## Communities (77 total, 44 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.09
@@ -151,12 +150,12 @@ Cohesion: 0.12
 Nodes (29): BaseModel, Agent, AgentReply, ExecutedCall, GuardDecision, Plan, PlanRequest, Orchestration loop: intent, plan, guard, execute, report. The loop owns the… (+21 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.10
-Nodes (27): DuplicateToolError, StrEnum, Tool registry and calling protocol. This module is the contract every other…, Everything the rest of the system needs to know about a tool. Declared once by…, Adapter this tool belongs to, e.g. ``itmano_crm``., Raised when two tools claim the same name., Raised when a name is looked up that was never registered., Raised on an attempt to register after the registry was frozen. (+19 more)
+Cohesion: 0.09
+Nodes (30): DuplicateToolError, BaseModel, Tool registry and calling protocol. This module is the contract every other…, Everything the rest of the system needs to know about a tool. Declared once by…, Adapter this tool belongs to, e.g. ``itmano_crm``., Raised when two tools claim the same name., Raised when a name is looked up that was never registered., Raised on an attempt to register after the registry was frozen. (+22 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.14
-Nodes (12): Default guard until ``conduit.core.guard`` lands: reads pass, writes do not.…, ReadOnlyGuard, A request to run one tool, as the planner emits it., Per-invocation identity and correlation. ``tenant_id`` is carried, never…, Name-to-implementation map, populated at startup and then frozen. Freezing…, ToolCall, ToolContext, ToolRegistry (+4 more)
+Cohesion: 0.13
+Nodes (14): Default guard until ``conduit.core.guard`` lands: reads pass, writes do not.…, ReadOnlyGuard, A request to run one tool, as the planner emits it., Per-invocation identity and correlation. ``tenant_id`` is carried, never…, Name-to-implementation map, populated at startup and then frozen. Freezing…, ToolCall, ToolContext, ToolRegistry (+6 more)
 
 ### Community 9 - "Community 9"
 Cohesion: 0.09
@@ -179,32 +178,28 @@ Cohesion: 0.14
 Nodes (22): CreateEmailDraftParams, CreateLeadParams, CreateNoteParams, GetDealParams, GetLeadParams, Intent, Language, LeadStage (+14 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.12
-Nodes (14): ItmanoCrmSettings, Configuration for the ITMANO CRM adapter. Everything arrives via env vars., Connection details plus the assertion that guards against pointing here at the…, contract_version(), load_contract(), Operation, operations(), Any (+6 more)
+Cohesion: 0.13
+Nodes (15): CrmResponse, HTTP client for the CRM agent surface. Failures raise :class:`CrmError`…, A successful call, plus the headers worth carrying forward., Configuration for the ITMANO CRM adapter. Everything arrives via env vars., contract_version(), load_contract(), Operation, operations() (+7 more)
 
 ### Community 15 - "Community 15"
 Cohesion: 0.15
 Nodes (12): ConfigurationError, The adapter is pointed somewhere it was not meant to reach., fixture, crm(), crm_registry(), ItmanoCrmSettings, Offline tests for the CRM adapter. Every response here comes from…, The planner sees descriptions and nothing else. (+4 more)
 
 ### Community 16 - "Community 16"
-Cohesion: 0.30
-Nodes (15): AuditEvent, AuditPhase, ``INTENT`` is written before the call runs, ``OUTCOME`` after., One record in the action log. Serialisable, no live objects., StopReason, What a tool does to the world. The guard treats these very differently:…, SideEffect, NoParams (+7 more)
+Cohesion: 0.25
+Nodes (17): AuditEvent, AuditPhase, ``INTENT`` is written before the call runs, ``OUTCOME`` after., One record in the action log. Serialisable, no live objects., StopReason, StrEnum, What a tool does to the world. The guard treats these very differently:…, Outcome of an invocation, from the caller's point of view. (+9 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.13
-Nodes (13): CrmError, CrmResponse, _float_header(), _int_header(), Any, HTTP client for the CRM agent surface. Failures raise :class:`CrmError`…, Perform one operation from the contract., Download the contract the server is publishing right now. Used to detect drift… (+5 more)
+Cohesion: 0.15
+Nodes (10): CrmError, _float_header(), _int_header(), Any, Perform one operation from the contract., Download the contract the server is publishing right now. Used to detect drift…, A call that did not succeed, already in CONDUIT's error vocabulary., Exception (+2 more)
 
 ### Community 18 - "Community 18"
 Cohesion: 0.15
 Nodes (16): agent_tool_operations(), Any, ToolRegistry, Registration of the CRM tools into a :class:`ToolRegistry`. Descriptions here…, Operation ids the contract marks as belonging in an agent's catalogue.…, Perform a call and flatten every expected failure into a result., Publish the CRM tools. Call once at startup, before ``registry.freeze()``. The…, register() (+8 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.27
-Nodes (11): ItmanoCrmClient, One client per process. Holds the connection pool; owns no state., client(), Live checks against the CRM sandbox. Read-only, and skipped by default. These…, Drift detector. The vendored contract is where per-operation timeouts and the…, test_an_over_large_limit_is_rejected_not_truncated(), test_an_unknown_lead_maps_to_not_found(), test_identity_matches_what_we_expect() (+3 more)
-
-### Community 20 - "Community 20"
-Cohesion: 0.16
-Nodes (9): BaseModel, Validate, run and time one call. Never raises. Anything a handler throws…, Structured failure detail. Safe to serialise into the audit log., Uniform envelope returned by every tool. Handlers return this instead of…, ToolError, ToolResult, ctx(), Shared fixtures. Nothing here talks to a real system. (+1 more)
+Cohesion: 0.21
+Nodes (13): ItmanoCrmClient, One client per process. Holds the connection pool; owns no state., ItmanoCrmSettings, Connection details plus the assertion that guards against pointing here at the…, client(), Live checks against the CRM sandbox. Read-only, and skipped by default. These…, Drift detector. The vendored contract is where per-operation timeouts and the…, test_an_over_large_limit_is_rejected_not_truncated() (+5 more)
 
 ### Community 21 - "Community 21"
 Cohesion: 0.23
@@ -235,8 +230,8 @@ Cohesion: 0.25
 Nodes (3): won' used to be the example here; it is now a recognised alias for 'cerrado',…, The CRM has no unassigned state, so this must never reach the network., TestArgumentValidation
 
 ### Community 28 - "Community 28"
-Cohesion: 0.33
-Nodes (5): Protocol, The shape of a tool implementation., Decorator form of :meth:`register`., ToolHandler, P
+Cohesion: 0.24
+Nodes (7): Protocol, The shape of a tool implementation., Add a tool. Raises rather than silently replacing an existing name., Decorator form of :meth:`register`., RegisteredTool, ToolHandler, P
 
 ### Community 29 - "Community 29"
 Cohesion: 0.47
@@ -266,7 +261,7 @@ Nodes (3): _imported_modules(), Executable form of the dependency rule: the core
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ToolRegistry` connect `Community 8` to `Community 3`, `Community 6`, `Community 7`, `Community 16`, `Community 20`, `Community 28`?**
+- **Why does `ToolRegistry` connect `Community 8` to `Community 3`, `Community 6`, `Community 7`, `Community 16`, `Community 28`?**
   _High betweenness centrality (0.047) - this node is a cross-community bridge._
 - **Why does `ItmanoCrmClient` connect `Community 19` to `Community 32`, `Community 2`, `Community 10`, `Community 14`, `Community 15`, `Community 17`, `Community 26`?**
   _High betweenness centrality (0.038) - this node is a cross-community bridge._

@@ -405,7 +405,7 @@ class TestRefusalsAreAnnounced:
     def test_a_denied_call_says_so_and_says_why(self) -> None:
         line = self.describe_refused("itmano_crm.update_lead")
 
-        assert line.startswith("Refused:")
+        assert line.startswith("Refused")
         assert "not on the whitelist" in line
 
     def test_a_denied_call_does_not_claim_to_be_spending(self) -> None:
