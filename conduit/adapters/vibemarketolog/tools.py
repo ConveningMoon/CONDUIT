@@ -163,11 +163,13 @@ def register(registry: ToolRegistry, client: VibemarketologClient) -> None:
             name=f"{NAMESPACE}.generate_image",
             description=(
                 "Generate one image from a text description and return its URL. "
-                "This SPENDS MONEY from the account balance and cannot be undone, "
-                "so say what you are about to make before calling it. Takes tens of "
+                "Call this DIRECTLY whenever someone asks for an image to be made "
+                "— it already prices every candidate model for free on the way in, "
+                "so a separate estimate first is wasted time. "
+                "It SPENDS MONEY from the account balance and cannot be undone, so "
+                "say what you are about to make before calling it. Takes about 80 "
                 "seconds. For anything other than an image — video, voice, music — "
-                "there is no generation tool; use estimate_generation to price it "
-                "and tell the user the figure."
+                "there is no generation tool at all."
             ),
             params=GenerateImageParams,
             side_effect=SideEffect.WRITE,
@@ -181,10 +183,13 @@ def register(registry: ToolRegistry, client: VibemarketologClient) -> None:
             name=f"{NAMESPACE}.estimate_generation",
             description=(
                 "Price a generation without producing it. FREE and charges nothing. "
-                "Works for image, video, voice and music. Use it whenever someone "
-                "asks what something would cost, and always before an expensive "
-                "generation. Video can only be priced this way — nothing here can "
-                "generate a clip."
+                "Works for image, video, voice and music. Use it in exactly two "
+                "cases: when someone ASKS what something would cost, and when they "
+                "want a video, voice or music clip, none of which any tool here can "
+                "actually generate. Do NOT call it before generate_image — that tool "
+                "prices its own options already. Every argument must come from the "
+                "current message; there is no memory of earlier ones, so ask for a "
+                "description rather than guessing one."
             ),
             params=EstimateParams,
             side_effect=SideEffect.READ,

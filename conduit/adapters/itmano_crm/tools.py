@@ -239,7 +239,9 @@ def register(registry: ToolRegistry, client: ItmanoCrmClient) -> None:
             "search",
             "Free-text search across leads, properties and deals. Returns type, id "
             "and a display label only — follow up with get_lead or get_deal for "
-            "detail. Use this when you have a name or a fragment rather than an id.",
+            "detail. Use this ONLY when you have a name or a fragment and no id. "
+            "Anything shaped like 'demo-lead-003' is already an id: pass it straight "
+            "to the tool that needs it instead of searching for it.",
             SearchParams,
             client,
         ),

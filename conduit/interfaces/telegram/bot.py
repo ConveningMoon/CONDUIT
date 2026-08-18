@@ -191,14 +191,33 @@ def build_dispatcher(gateway: TelegramGateway) -> Dispatcher:
     return dispatcher
 
 
+CONCURRENT_TURNS = 8
+"""Ceiling on turns handled at once.
+
+aiogram runs every update as its own task and by default imposes no limit at
+all. Each turn is cheap — it spends its time waiting on the network, and an
+image generation is eighty seconds of idle polling — but "cheap" and "unbounded"
+together still add up. This box also runs a VPN other people depend on, so the
+process takes a stated share rather than whatever it can get.
+
+Eight is well above what a demo or a handful of operators produce, and far below
+what would trouble 2 GB of RAM at ~170 MB resident.
+"""
+
+
 async def run(agent: Agent, bindings: BindingTable, settings: TelegramSettings) -> None:
     """Long-poll for updates. Deployment swaps this for a webhook."""
     bot = Bot(token=settings.bot_token.get_secret_value())
     dispatcher = build_dispatcher(
         TelegramGateway(agent=agent, bindings=bindings, show_steps=settings.show_steps)
     )
-    log.info("telegram.starting", chats=len(bindings), tenants=sorted(bindings.tenants))
+    log.info(
+        "telegram.starting",
+        chats=len(bindings),
+        tenants=sorted(bindings.tenants),
+        concurrent_turns=CONCURRENT_TURNS,
+    )
     try:
-        await dispatcher.start_polling(bot)
+        await dispatcher.start_polling(bot, tasks_concurrency_limit=CONCURRENT_TURNS)
     finally:
         await bot.session.close()
