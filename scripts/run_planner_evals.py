@@ -27,11 +27,14 @@ from conduit.adapters.vibemarketolog import (
     VibemarketologClient,
     VibemarketologSettings,
 )
+from conduit.adapters.vibemarketolog import register as register_generation
 from conduit.core.agent import PlanRequest, Role, Turn
 from conduit.core.telemetry import turn_ledger
 from conduit.core.tools import ToolRegistry, ToolSpec
 
-GOLDEN_SET = Path(__file__).resolve().parent.parent / "evals" / "planner_golden_set.json"
+EVALS = Path(__file__).resolve().parent.parent / "evals"
+GOLDEN_SET = EVALS / "planner_golden_set.json"
+HOLDOUT = EVALS / "planner_holdout.json"
 DEMO_RESERVE_RUB = 250.0
 """Kept back for the live demo on the expensive model.
 
@@ -76,6 +79,22 @@ class Report:
     @property
     def total_cost(self) -> float:
         return sum(o.cost_rub for o in self.outcomes)
+
+
+def normalise(spec: ToolSpec | None, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Put the planner's arguments through the tool's own validation first.
+
+    What matters is whether the call would work, not whether the raw string
+    matched. The CRM adapter accepts documented English aliases for its Spanish
+    enums, so a planner answering "nurturing" produces a perfectly good call —
+    grading the raw text scores that as a miss and understates the model.
+    """
+    if spec is None:
+        return arguments
+    try:
+        return dict(spec.params.model_validate(arguments).model_dump(mode="json"))
+    except Exception:
+        return arguments
 
 
 def grade(
@@ -125,8 +144,9 @@ async def run_model(
                 plan = await planner.plan(request)
 
             chose = plan.tool_calls[0].name if plan.tool_calls else None
-            arguments = dict(plan.tool_calls[0].arguments) if plan.tool_calls else {}
-            tool_ok, arguments_ok, detail = grade(case, chose, arguments)
+            raw = dict(plan.tool_calls[0].arguments) if plan.tool_calls else {}
+            spec = next((s for s in specs if s.name == chose), None)
+            tool_ok, arguments_ok, detail = grade(case, chose, normalise(spec, raw))
             retries = sum(1 for entry in ledger if entry.retry)
 
             report.outcomes.append(
@@ -168,10 +188,17 @@ def print_report(report: Report) -> None:
 async def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--models", nargs="+", default=["gpt-5.6-luna"])
+    parser.add_argument(
+        "--holdout",
+        action="store_true",
+        help="run the held-out cases instead of the tuning set",
+    )
     parser.add_argument("--yes", action="store_true", help="skip the spend confirmation")
     args = parser.parse_args()
 
-    document = json.loads(GOLDEN_SET.read_text(encoding="utf-8"))
+    source = HOLDOUT if args.holdout else GOLDEN_SET
+    document = json.loads(source.read_text(encoding="utf-8"))
+    print(f"set: {source.name}")
     cases = document["cases"]
 
     projected = sum(PLANNER_MODELS.get(m, 4.0) * len(cases) for m in args.models)
@@ -191,10 +218,14 @@ async def main() -> int:
         return 0
 
     crm = ItmanoCrmClient(ItmanoCrmSettings())
+    platform = VibemarketologClient(VibemarketologSettings())
     try:
         await crm.verify()
         registry = ToolRegistry()
         register(registry, crm)
+        # Both adapters, or a case about generating an image measures nothing but
+        # the absence of the tool.
+        register_generation(registry, platform)
         registry.freeze()
         specs = tuple(registry.specs())
         names = frozenset(spec.name for spec in specs)
@@ -203,6 +234,7 @@ async def main() -> int:
             print_report(await run_model(model, cases, specs, names))
     finally:
         await crm.aclose()
+        await platform.aclose()
 
     async with VibemarketologClient(VibemarketologSettings()) as probe:
         print(f"\nbalance after: {await probe.balance_rub():.2f} ₽")
