@@ -10,19 +10,56 @@ ceiling. Scaling out means moving `GuardStore` to Redis first.
 
 ## Prerequisites
 
-Python 3.12 or newer. Check before installing anything:
+**Python 3.12 or newer**, and the requirement is real rather than aspirational:
+`core/tools.py` declares generics with PEP 695 syntax, which 3.11 cannot parse,
+and `StrEnum`, `asyncio.timeout`, `datetime.UTC` and `tomllib` all need 3.11.
+
+Check what the machine has before installing anything:
 
     python3 --version
-    cat /etc/os-release | head -2
+    head -2 /etc/os-release
+
+Ubuntu 22.04 ships 3.10, so it needs a newer interpreter alongside the system
+one. **Never replace the system python3** — apt and other services depend on it.
 
 ## Install
 
-    sudo useradd --system --create-home --home-dir /opt/conduit --shell /usr/sbin/nologin conduit
+    sudo useradd --system --home-dir /opt/conduit --shell /usr/sbin/nologin conduit
+    sudo mkdir -p /opt/conduit && sudo chown conduit:conduit /opt/conduit
     sudo -u conduit git clone https://github.com/ConveningMoon/CONDUIT.git /opt/conduit
     cd /opt/conduit
     sudo -u conduit git checkout feat/itmano-crm-adapter
-    sudo -u conduit python3 -m venv .venv
-    sudo -u conduit .venv/bin/pip install -e .
+
+Note the missing `--create-home`: `useradd` would populate the directory with
+skeleton files, and `git clone` refuses a directory that is not empty.
+
+### Python 3.12, contained (preferred on a shared machine)
+
+Installs a standalone interpreter under the service account. Nothing
+system-wide changes, which matters when the box runs something else that people
+depend on.
+
+    sudo -u conduit bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh'
+    sudo -u conduit /opt/conduit/.local/bin/uv python install 3.12
+    sudo -u conduit /opt/conduit/.local/bin/uv venv --python 3.12 /opt/conduit/.venv
+    sudo -u conduit /opt/conduit/.local/bin/uv pip install --python /opt/conduit/.venv/bin/python -e /opt/conduit
+
+### Python 3.12, from apt
+
+Adds a third-party archive to the whole system. Fine on a dedicated box, more
+than is needed on a shared one.
+
+    sudo add-apt-repository -y ppa:deadsnakes/ppa
+    sudo apt update && sudo apt install -y python3.12 python3.12-venv
+    sudo -u conduit python3.12 -m venv /opt/conduit/.venv
+    sudo -u conduit /opt/conduit/.venv/bin/pip install -e /opt/conduit
+
+Either way the interpreter ends up at `/opt/conduit/.venv/bin/python`, which is
+what the systemd unit runs.
+
+### Verify before going further
+
+    sudo -u conduit /opt/conduit/.venv/bin/python -c "import sys, conduit; print(sys.version)"
 
 ## Configure
 
