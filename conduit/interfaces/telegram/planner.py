@@ -18,9 +18,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from conduit.core.agent import Plan, Planner, PlanRequest, Role
-from conduit.core.tools import ToolCall
+from conduit.core.tools import SideEffect, ToolCall, ToolSpec
 
-__all__ = ["HELP", "CommandFastPath", "CommandPlanner"]
+__all__ = ["HELP", "CommandFastPath", "CommandPlanner", "describe_step"]
 
 HELP = (
     "I can look things up in the CRM.\n\n"
@@ -245,3 +245,45 @@ class CommandFastPath:
             "",
         )
         return opening.strip().startswith("/")
+
+
+STEP_PHRASES: dict[str, str] = {
+    "itmano_crm.list_leads": "Looking up leads",
+    "itmano_crm.get_lead": "Fetching that lead",
+    "itmano_crm.list_deals": "Looking up purchase processes",
+    "itmano_crm.get_deal": "Fetching that purchase process",
+    "itmano_crm.search": "Searching the CRM",
+    "itmano_crm.metadata": "Checking what values this CRM accepts",
+    "itmano_crm.whoami": "Checking which tenant I am bound to",
+    "vibemarketolog.estimate_generation": "Pricing that, free of charge",
+    "vibemarketolog.generate_image": "Generating the image",
+}
+
+SLOW_TOOLS: dict[str, str] = {
+    "vibemarketolog.generate_image": "about 80 seconds",
+}
+"""Waits long enough that silence reads as a crash. Announce the duration
+*before* it starts: an expected wait is patience, an unexplained one is a bug.
+Measured, not guessed — 80.3s for z-image and 80.4s for qwen-image-3."""
+
+
+def describe_step(call: ToolCall, spec: ToolSpec) -> str:
+    """One line saying what the agent decided, before it acts on it.
+
+    Shows the arguments too. A wrong filter is then visible at the moment it is
+    chosen rather than inferred from a wrong answer two steps later.
+    """
+    phrase = STEP_PHRASES.get(call.name, f"Calling {call.name}")
+    detail = ", ".join(
+        f"{key}={value}"
+        for key, value in sorted(call.arguments.items())
+        if value is not None and key not in {"limit", "cursor", "prompt"}
+    )
+    line = f"{phrase}{f' ({detail})' if detail else ''}…"
+
+    if spec.side_effect is SideEffect.WRITE:
+        line += "\nThis one spends money."
+    slow = SLOW_TOOLS.get(call.name)
+    if slow:
+        line += f" Takes {slow}."
+    return line

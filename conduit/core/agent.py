@@ -48,6 +48,7 @@ __all__ = [
     "Planner",
     "ReadOnlyGuard",
     "Role",
+    "StepReporter",
     "StopReason",
     "Turn",
 ]
@@ -191,6 +192,18 @@ class NullAuditSink:
         return None
 
 
+class StepReporter(Protocol):
+    """Notified of each call the guard has allowed, just before it runs.
+
+    The point is not decoration. A turn that takes seconds is a black box unless
+    something says what the agent decided; showing the tool and its arguments
+    turns a wait into visible reasoning, and makes a wrong choice legible at the
+    moment it is made rather than after the answer comes out wrong.
+    """
+
+    async def __call__(self, call: ToolCall, spec: ToolSpec) -> None: ...
+
+
 class StopReason(StrEnum):
     COMPLETED = "completed"
     MAX_ITERATIONS = "max_iterations"
@@ -236,6 +249,7 @@ class Agent:
     planner: Planner
     guard: Guard = field(default_factory=ReadOnlyGuard)
     audit: AuditSink = field(default_factory=NullAuditSink)
+    on_step: StepReporter | None = None
     max_iterations: int = DEFAULT_MAX_ITERATIONS
 
     async def run(
@@ -314,6 +328,12 @@ class Agent:
         await self.audit.record(self._event(AuditPhase.INTENT, call, spec, ctx, decision=decision))
 
         if decision.allowed:
+            if self.on_step is not None:
+                # Reporting must never be able to break the turn it narrates.
+                try:
+                    await self.on_step(call, spec)
+                except Exception:
+                    pass
             result = await self.registry.invoke(call, ctx)
         else:
             result = ToolResult.rejected(decision.reason)

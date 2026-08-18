@@ -8,7 +8,7 @@ import pytest
 from aiogram.types import Chat, Message, User
 
 from conduit.core.agent import Agent, Plan, PlanRequest
-from conduit.core.tools import SideEffect, ToolContext, ToolRegistry, ToolResult
+from conduit.core.tools import SideEffect, ToolCall, ToolContext, ToolRegistry, ToolResult
 from conduit.interfaces.telegram.bindings import Binding, BindingTable
 from conduit.interfaces.telegram.bot import REFUSAL, TelegramGateway
 from conduit.interfaces.telegram.planner import HELP, UNKNOWN, CommandPlanner
@@ -299,3 +299,62 @@ class TestRendering:
 
         assert text == "Nothing with that id."
         assert "404" not in text
+
+
+class TestStepDescriptions:
+    """The 80-second wait is only bearable if it is announced."""
+
+    def describe(self, name: str, arguments: dict, side_effect=SideEffect.READ) -> str:
+        from conduit.core.tools import ToolSpec
+        from conduit.interfaces.telegram.planner import describe_step
+        from tests.conftest import NoParams
+
+        return describe_step(
+            ToolCall(id="c1", name=name, arguments=arguments),
+            ToolSpec(name=name, description="x", params=NoParams, side_effect=side_effect),
+        )
+
+    def test_a_read_says_what_it_is_looking_for(self) -> None:
+        line = self.describe("itmano_crm.list_leads", {"stage": "perdido", "limit": 10})
+
+        assert "Looking up leads" in line
+        assert "stage=perdido" in line
+        # Paging noise is not decision-making; it would only clutter the line.
+        assert "limit" not in line
+
+    def test_a_spend_is_announced_as_a_spend(self) -> None:
+        line = self.describe(
+            "vibemarketolog.generate_image", {"model": "qwen-image-3"}, SideEffect.WRITE
+        )
+
+        assert "spends money" in line
+
+    def test_a_slow_tool_states_the_wait_up_front(self) -> None:
+        """An expected wait is patience; an unexplained one reads as a crash."""
+        line = self.describe("vibemarketolog.generate_image", {}, SideEffect.WRITE)
+
+        assert "80 seconds" in line
+
+    def test_an_unknown_tool_still_gets_a_line(self) -> None:
+        assert "some.new_tool" in self.describe("some.new_tool", {})
+
+
+class TestStepReporterSafety:
+    async def test_a_failing_reporter_cannot_break_the_turn(
+        self, bindings: BindingTable, spy_agent
+    ) -> None:
+        """Narration must never be able to kill what it narrates."""
+        from conduit.core.tools import ToolSpec
+
+        agent, seen = spy_agent
+
+        async def broken(call: ToolCall, spec: ToolSpec) -> None:
+            raise RuntimeError("telegram is down")
+
+        agent.on_step = broken
+        gateway = TelegramGateway(agent=agent, bindings=bindings, show_steps=True)
+
+        reply = await gateway.handle(make_message("/whoami"))
+
+        assert reply == "done"
+        assert len(seen) == 1

@@ -27,6 +27,13 @@ from conduit.core.tools import (
 BASE = "https://platform.test/api/agent"
 
 
+def mock_candidate_prices() -> None:
+    """generate_image prices every candidate before spending. Free, but mocked."""
+    respx.post(f"{BASE}/generate/estimate").mock(
+        return_value=httpx.Response(200, json={"valid": True, "price_rub": 1.2})
+    )
+
+
 @pytest.fixture
 async def client():
     settings = VibemarketologSettings(
@@ -149,6 +156,7 @@ class TestGenerating:
     async def test_the_happy_path_polls_until_ready(
         self, registry: ToolRegistry, ctx: ToolContext
     ) -> None:
+        mock_candidate_prices()
         respx.post(f"{BASE}/generate").mock(return_value=httpx.Response(200, json={"id": "gen-1"}))
         respx.get(f"{BASE}/generation/gen-1/status").mock(
             side_effect=[
@@ -179,6 +187,7 @@ class TestGenerating:
         """strict=true rejects bad params before the debit, not after."""
         import json
 
+        mock_candidate_prices()
         start = respx.post(f"{BASE}/generate").mock(
             return_value=httpx.Response(200, json={"id": "gen-1"})
         )
@@ -201,6 +210,7 @@ class TestGenerating:
     async def test_a_failed_generation_is_a_result_not_an_exception(
         self, registry: ToolRegistry, ctx: ToolContext
     ) -> None:
+        mock_candidate_prices()
         respx.post(f"{BASE}/generate").mock(return_value=httpx.Response(200, json={"id": "g"}))
         respx.get(f"{BASE}/generation/g/status").mock(
             return_value=httpx.Response(200, json={"status": "failed", "error": "nsfw"})
@@ -223,6 +233,7 @@ class TestGenerating:
     async def test_a_rejected_request_never_reaches_polling(
         self, registry: ToolRegistry, ctx: ToolContext
     ) -> None:
+        mock_candidate_prices()
         respx.post(f"{BASE}/generate").mock(
             return_value=httpx.Response(422, text="prompt too long")
         )
@@ -283,6 +294,7 @@ class TestTerminalStates:
     async def test_the_real_terminal_word_is_recognised(
         self, registry: ToolRegistry, ctx: ToolContext
     ) -> None:
+        mock_candidate_prices()
         respx.post(f"{BASE}/generate").mock(return_value=httpx.Response(200, json={"id": "g"}))
         respx.get(f"{BASE}/generation/g/status").mock(
             return_value=httpx.Response(
@@ -311,6 +323,7 @@ class TestTerminalStates:
         self, registry: ToolRegistry, ctx: ToolContext
     ) -> None:
         """Belt and braces: never poll again over an unknown word for 'ready'."""
+        mock_candidate_prices()
         respx.post(f"{BASE}/generate").mock(return_value=httpx.Response(200, json={"id": "g"}))
         respx.get(f"{BASE}/generation/g/status").mock(
             return_value=httpx.Response(

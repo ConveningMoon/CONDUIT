@@ -17,11 +17,12 @@ import structlog
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message
 
-from conduit.core.agent import Agent
+from conduit.core.agent import Agent, StepReporter
 from conduit.core.telemetry import ModelCall, turn_ledger
-from conduit.core.tools import ToolContext
+from conduit.core.tools import ToolCall, ToolContext, ToolSpec
 from conduit.interfaces.telegram.bindings import BindingTable, Resolution
 from conduit.interfaces.telegram.config import TelegramSettings
+from conduit.interfaces.telegram.planner import describe_step
 
 __all__ = ["REFUSAL", "TYPING_REFRESH_SECONDS", "TelegramGateway", "build_dispatcher"]
 
@@ -49,6 +50,7 @@ class TelegramGateway:
 
     agent: Agent
     bindings: BindingTable
+    show_steps: bool = True
     last_turn: dict[str, list[ModelCall]] = field(default_factory=dict)
     """Model calls from the most recent turn of each session, for ``/debug``.
     One entry per conversation, overwritten each turn — a log, not a ledger."""
@@ -87,6 +89,7 @@ class TelegramGateway:
         )
 
         typing = self._start_typing(message)
+        self.agent.on_step = self._reporter(message) if self.show_steps else None
         try:
             with turn_ledger() as ledger:
                 reply = await self.agent.run(text, ctx)
@@ -115,6 +118,17 @@ class TelegramGateway:
             cost_rub=round(sum(entry.cost_rub for entry in ledger), 3),
         )
         return reply.text or PROBLEM
+
+    def _reporter(self, message: Message) -> StepReporter | None:
+        """Send one line per allowed call, before it runs."""
+        bot = message.bot
+        if bot is None:
+            return None
+
+        async def report(call: ToolCall, spec: ToolSpec) -> None:
+            await bot.send_message(message.chat.id, describe_step(call, spec))
+
+        return report
 
     @staticmethod
     def _start_typing(message: Message) -> asyncio.Task[None] | None:
@@ -180,7 +194,9 @@ def build_dispatcher(gateway: TelegramGateway) -> Dispatcher:
 async def run(agent: Agent, bindings: BindingTable, settings: TelegramSettings) -> None:
     """Long-poll for updates. Deployment swaps this for a webhook."""
     bot = Bot(token=settings.bot_token.get_secret_value())
-    dispatcher = build_dispatcher(TelegramGateway(agent=agent, bindings=bindings))
+    dispatcher = build_dispatcher(
+        TelegramGateway(agent=agent, bindings=bindings, show_steps=settings.show_steps)
+    )
     log.info("telegram.starting", chats=len(bindings), tenants=sorted(bindings.tenants))
     try:
         await dispatcher.start_polling(bot)

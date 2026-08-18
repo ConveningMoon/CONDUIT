@@ -89,12 +89,23 @@ async def main() -> int:
             denied=sorted({spec.name for spec in registry.specs()} - whitelist),
         )
 
-        balance = await platform.balance_rub()
-        log.info(
-            "planner.ready",
-            model=platform.settings.planner_model,
-            balance_rub=balance,
-        )
+        # Informational, and deliberately NOT fatal. The CRM check above is the
+        # authorization boundary and must fail closed; this one is a courtesy. If
+        # the generation API is down, the command fast path still answers every
+        # /leads and /lead, which is exactly the safety net that would be wasted
+        # by refusing to start.
+        try:
+            log.info(
+                "planner.ready",
+                model=platform.settings.planner_model,
+                balance_rub=await platform.balance_rub(),
+            )
+        except Exception as exc:
+            log.warning(
+                "planner.unreachable",
+                error=str(exc)[:200],
+                consequence="commands still work; free-form questions will not",
+            )
 
         agent = Agent(
             registry=registry,

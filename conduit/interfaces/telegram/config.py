@@ -20,3 +20,7 @@ class TelegramSettings(BaseSettings):
 
     bot_token: SecretStr
     bindings_path: Path = Path("config/telegram_bindings.toml")
+
+    show_steps: bool = True
+    """Announce each tool call before running it. On by default: a turn that
+    takes tens of seconds is a black box without it."""

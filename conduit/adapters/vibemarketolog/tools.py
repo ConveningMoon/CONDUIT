@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from conduit.adapters.vibemarketolog.client import GenerationError, VibemarketologClient
 from conduit.core.tools import (
@@ -34,6 +34,13 @@ NAMESPACE = "vibemarketolog"
 
 ASPECT_RATIOS = Literal["1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16", "21:9"]
 
+IMAGE_MODELS = Literal["z-image", "qwen-image-3"]
+
+CANDIDATES: tuple[str, ...] = ("z-image", "qwen-image-3")
+"""Priced alongside every generation so the choice is visible rather than
+implied. Estimates are free, and both models were measured at ~80 seconds, so
+the trade-off is purely price against quality — not price against speed."""
+
 
 class _Params(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -50,6 +57,17 @@ class GenerateImageParams(_Params):
         ),
     )
     aspect_ratio: ASPECT_RATIOS = "16:9"
+    model: IMAGE_MODELS | None = Field(
+        default=None,
+        description=(
+            "Which model to spend on. 'z-image' costs 1.2 RUB and is fine for a "
+            "plain photographic scene. 'qwen-image-3' costs 7 RUB and is the one "
+            "to pick when the image needs legible text in it or convincing "
+            "photorealism. Both take about 80 seconds, so this is a price-versus-"
+            "quality choice, not a speed one. Say which you chose and why before "
+            "calling. Leave empty for the configured default."
+        ),
+    )
 
 
 class EstimateParams(_Params):
@@ -70,7 +88,20 @@ def register(registry: ToolRegistry, client: VibemarketologClient) -> None:
     """Publish the generation tools. Call before ``registry.freeze()``."""
 
     async def generate_image(ctx: ToolContext, params: GenerateImageParams) -> ToolResult:
-        model = client.settings.image_model
+        model = params.model or client.settings.image_model
+
+        # Free, and it is what makes the choice inspectable: the answer carries
+        # what every candidate would have cost, not just what this one did.
+        alternatives: dict[str, JsonValue] = {}
+        for candidate in CANDIDATES:
+            try:
+                quote = await client.estimate(
+                    {"type": "image", "model": candidate, "prompt": params.prompt}
+                )
+                alternatives[candidate] = quote.get("price_rub")
+            except GenerationError:
+                alternatives[candidate] = None
+
         body: dict[str, Any] = {
             "type": "image",
             "model": model,
@@ -95,6 +126,7 @@ def register(registry: ToolRegistry, client: VibemarketologClient) -> None:
                 "model": model,
                 "cost_rub": finished.get("cost"),
                 "generation_id": generation_id,
+                "alternatives_rub": alternatives,
             }
         )
 

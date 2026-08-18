@@ -240,3 +240,31 @@ class TestResultClipping:
 
         assert "truncated: 500 more characters" in clipped
         assert clipped.startswith("x" * 100)
+
+
+class TestDegradation:
+    """The safety net: if the model API is down, commands must still answer."""
+
+    @respx.mock
+    async def test_commands_never_touch_the_model(self, planner: LlmPlanner) -> None:
+        from conduit.interfaces.telegram.planner import CommandFastPath
+
+        route = respx.post(f"{BASE}/generate").mock(side_effect=httpx.ConnectError("down"))
+        fast_path = CommandFastPath(fallback=planner)
+
+        plan = await fast_path.plan(request_for("/leads cerrado"))
+
+        assert route.call_count == 0
+        assert plan.tool_calls[0].name == "itmano_crm.list_leads"
+
+    @respx.mock
+    async def test_free_text_degrades_to_a_sentence_not_a_crash(self, planner: LlmPlanner) -> None:
+        from conduit.interfaces.telegram.planner import CommandFastPath
+
+        respx.post(f"{BASE}/generate").mock(side_effect=httpx.ConnectError("down"))
+        fast_path = CommandFastPath(fallback=planner)
+
+        plan = await fast_path.plan(request_for("cuantos leads hay?"))
+
+        assert plan.reply == FAILED_REPLY
+        assert "/help" in plan.reply
