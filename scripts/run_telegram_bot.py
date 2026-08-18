@@ -54,23 +54,34 @@ async def main() -> int:
     crm = ItmanoCrmClient(ItmanoCrmSettings())
     platform = VibemarketologClient(VibemarketologSettings())
     try:
-        identity = await crm.verify()
-        log.info(
-            "crm.verified",
-            tenant=identity.tenant_id,
-            environment=identity.environment,
-            scopes=identity.scopes,
-        )
-
-        unbound = bindings.tenants - {identity.tenant_id}
-        if unbound:
-            # A binding pointing somewhere the token cannot reach would fail one
-            # message at a time, confusingly. Say it once, at startup.
-            log.error("bindings.unreachable_tenants", tenants=sorted(unbound))
-            return 1
-
         registry = ToolRegistry()
-        register(registry, crm)
+
+        # The CRM check is the authorization boundary and still fails closed —
+        # but it fails closed on the CRM *tools*, not on the whole process. If
+        # the CRM cannot be verified, its tools are simply never registered, so
+        # nothing can call them; generation still works. Refusing to start at all
+        # would throw away the half of the system that is fine.
+        try:
+            identity = await crm.verify()
+            unbound = bindings.tenants - {identity.tenant_id}
+            if unbound:
+                log.error("bindings.unreachable_tenants", tenants=sorted(unbound))
+                return 1
+            register(registry, crm)
+            log.info(
+                "crm.verified",
+                tenant=identity.tenant_id,
+                environment=identity.environment,
+                scopes=identity.scopes,
+            )
+        except Exception as exc:
+            log.error(
+                "crm.unavailable",
+                error=str(exc)[:200],
+                consequence="CRM tools are NOT registered and cannot be called; "
+                "generation still works",
+            )
+
         register_generation(registry, platform)
         registry.freeze()
 
