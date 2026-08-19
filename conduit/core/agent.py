@@ -16,6 +16,7 @@ Two invariants hold here and are worth stating plainly:
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -193,12 +194,16 @@ class NullAuditSink:
 
 
 class StepReporter(Protocol):
-    """Notified of each call the guard has allowed, just before it runs.
+    """Notified of every call the loop considered, with the guard's verdict.
 
     The point is not decoration. A turn that takes seconds is a black box unless
     something says what the agent decided; showing the tool and its arguments
     turns a wait into visible reasoning, and makes a wrong choice legible at the
     moment it is made rather than after the answer comes out wrong.
+
+    Refusals are reported too, and deliberately: the guard stopping something is
+    the most interesting thing a turn can contain, and it would otherwise surface
+    only in the final answer, once the moment has passed.
     """
 
     async def __call__(self, call: ToolCall, spec: ToolSpec, decision: GuardDecision) -> None: ...
@@ -332,10 +337,8 @@ class Agent:
             # thing that can happen in a turn, and hiding it until the final
             # answer wastes the moment. Reporting must never be able to break
             # the turn it narrates.
-            try:
+            with contextlib.suppress(Exception):
                 await self.on_step(call, spec, decision)
-            except Exception:
-                pass
 
         if decision.allowed:
             result = await self.registry.invoke(call, ctx)
