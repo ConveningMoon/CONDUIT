@@ -435,3 +435,61 @@ class TestArgumentsAreShownAsExecuted:
 
         assert "stage=perdido" in line
         assert "lost" not in line
+
+
+class TestUnreadableMessages:
+    """Vladimir sent a voice note on 19 August and was told he was not
+    authorised. He was — the bot simply cannot read audio, and the platform
+    behind it offers text-to-speech but no speech-to-text. Saying the wrong one
+    of those to someone trying the bot for the first time is the worst available
+    answer."""
+
+    def voice_message(self, **kwargs) -> Message:
+        import datetime as dt
+
+        from aiogram.types import Voice
+
+        defaults = {"chat_id": BOUND_CHAT, "user_id": BOUND_USER}
+        defaults.update(kwargs)
+        return Message(
+            message_id=1,
+            date=dt.datetime(2026, 8, 19, tzinfo=dt.UTC),
+            chat=Chat(id=defaults["chat_id"], type="private"),
+            from_user=User(id=defaults["user_id"], is_bot=False, first_name="Tester"),
+            voice=Voice(file_id="f", file_unique_id="u", duration=3),
+        )
+
+    async def test_an_authorised_voice_note_is_told_the_truth(
+        self, bindings: BindingTable, spy_agent
+    ) -> None:
+        from conduit.interfaces.telegram.bot import UNREADABLE
+
+        agent, seen = spy_agent
+        gateway = TelegramGateway(agent=agent, bindings=bindings)
+
+        reply = await gateway.handle(self.voice_message())
+
+        assert reply == UNREADABLE
+        assert "authorised" not in reply
+        assert seen == [], "an unreadable message must not reach the agent"
+
+    async def test_an_unauthorised_voice_note_still_gets_the_plain_refusal(
+        self, bindings: BindingTable, spy_agent
+    ) -> None:
+        """Authorisation is decided before readability, so probing with a voice
+        note learns nothing a text message would not have told you."""
+        agent, _ = spy_agent
+        gateway = TelegramGateway(agent=agent, bindings=bindings)
+
+        assert await gateway.handle(self.voice_message(chat_id=424242)) == REFUSAL
+        assert await gateway.handle(self.voice_message(user_id=STRANGER)) == REFUSAL
+
+    async def test_an_empty_text_message_is_treated_the_same(
+        self, bindings: BindingTable, spy_agent
+    ) -> None:
+        from conduit.interfaces.telegram.bot import UNREADABLE
+
+        agent, _ = spy_agent
+        gateway = TelegramGateway(agent=agent, bindings=bindings)
+
+        assert await gateway.handle(make_message("   ")) == UNREADABLE
