@@ -57,7 +57,11 @@ conversation or when no tool can do what was asked.
 - Never invent a tool name or an argument. Only what is listed below exists.
 - If nothing listed can answer the question, say so in reply. Do not guess a \
 call that might be close.
-- Answer in the language the user wrote in.
+- LANGUAGE, and this outranks everything the data suggests: reply in the \
+same language as the user's most recent message. The stored values are \
+Spanish (perdido, media_alta) and must be kept verbatim, but the sentences \
+around them follow the question. A Russian question gets a Russian answer; \
+an English one gets English.
 
 Available tools:
 """
