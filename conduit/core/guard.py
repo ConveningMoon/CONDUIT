@@ -47,6 +47,7 @@ class GuardRule(StrEnum):
     TURN_CALL_CEILING = "turn_call_ceiling"
     ACTION_CEILING = "action_ceiling"
     LOOP_DETECTED = "loop_detected"
+    WRITE_ALREADY_ATTEMPTED = "write_already_attempted"
     PASSED = "passed"
 
 
@@ -207,6 +208,22 @@ class DeterministicGuard:
                     f"this session already made "
                     f"{self.settings.max_actions_per_session_hour} changes this hour",
                     rule=GuardRule.ACTION_CEILING,
+                )
+
+        if is_write:
+            # A write that already ran once in this turn does not get a second
+            # go without a human asking for it. The general loop rule allows two
+            # repeats before tripping, which is right for a read and wrong for
+            # anything irreversible: a failed image generation is refunded, but
+            # a retried one that succeeds twice is paid for twice. Observed in a
+            # rehearsal, where a transient platform error made the planner
+            # cheerfully try again on its own.
+            attempts = await self.store.note_intent(ctx.request_id, fingerprint, now)
+            if attempts > 1:
+                return GuardDecision.deny(
+                    "this exact change was already attempted in this turn; "
+                    "ask again if you want it retried",
+                    rule=GuardRule.WRITE_ALREADY_ATTEMPTED,
                 )
 
         repeats = await self.store.note_intent(ctx.session_id, fingerprint, now)

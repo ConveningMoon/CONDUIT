@@ -322,3 +322,64 @@ class TestThroughTheLoop:
         assert statuses[:2] == [ToolStatus.OK, ToolStatus.OK]
         assert statuses[2] is ToolStatus.REJECTED
         assert all(status is ToolStatus.REJECTED for status in statuses[2:])
+
+
+class TestWriteRetryWithinATurn:
+    """Observed in a rehearsal on 19 August: a transient platform error made the
+    image generation fail, and the planner cheerfully tried again on its own —
+    two paid attempts from one message, with nobody asked."""
+
+    async def test_the_same_write_twice_in_a_turn_is_denied(
+        self, store: InMemoryGuardStore, ctx: ToolContext
+    ) -> None:
+        guard = DeterministicGuard(settings=GuardSettings(allow_writes=True), store=store)
+        write = spec("demo.generate", SideEffect.WRITE)
+        proposed = call("demo.generate", prompt="a house")
+
+        first = await guard.review(proposed, write, ctx)
+        second = await guard.review(proposed, write, ctx)
+
+        assert first.allowed
+        assert not second.allowed
+        assert second.rule == GuardRule.WRITE_ALREADY_ATTEMPTED
+
+    async def test_a_different_write_in_the_same_turn_still_passes(
+        self, store: InMemoryGuardStore, ctx: ToolContext
+    ) -> None:
+        """The rule is about repeating one action, not about writing twice."""
+        guard = DeterministicGuard(settings=GuardSettings(allow_writes=True), store=store)
+        write = spec("demo.generate", SideEffect.WRITE)
+
+        first = await guard.review(call("demo.generate", prompt="a house"), write, ctx)
+        second = await guard.review(call("demo.generate", prompt="a boat"), write, ctx)
+
+        assert first.allowed
+        assert second.allowed
+
+    async def test_a_new_turn_may_retry_the_same_write(
+        self, store: InMemoryGuardStore, ctx: ToolContext
+    ) -> None:
+        """Asking again is a person deciding. That is exactly what should work."""
+        guard = DeterministicGuard(settings=GuardSettings(allow_writes=True), store=store)
+        write = spec("demo.generate", SideEffect.WRITE)
+        proposed = call("demo.generate", prompt="a house")
+        later = ToolContext(
+            tenant_id=ctx.tenant_id,
+            session_id=ctx.session_id,
+            actor_id=ctx.actor_id,
+            request_id="the-next-message",
+        )
+
+        await guard.review(proposed, write, ctx)
+
+        assert (await guard.review(proposed, write, later)).allowed
+
+    async def test_reads_may_repeat_freely_within_a_turn(
+        self, store: InMemoryGuardStore, ctx: ToolContext
+    ) -> None:
+        guard = DeterministicGuard(settings=GuardSettings(), store=store)
+        read = spec("demo.echo")
+        proposed = call("demo.echo", stage="perdido")
+
+        assert (await guard.review(proposed, read, ctx)).allowed
+        assert (await guard.review(proposed, read, ctx)).allowed
