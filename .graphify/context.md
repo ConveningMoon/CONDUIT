@@ -9,7 +9,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `86c83c5c`
+- Built from commit: `db99cae7`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -165,32 +165,32 @@ Cohesion: 0.10
 Nodes (15): Path, BindingTable, fixture, The authorization boundary of the messaging surface. These are the tests that…, Starting with zero bindings denies everything, but it is a mistake., Two tenants claiming one chat is not something to resolve by ordering., Knowing the chat is not the same as being allowed to speak in it., The binding was written for a private conversation. (+7 more)
 
 ### Community 9 - "Community 9"
+Cohesion: 0.15
+Nodes (12): ConfigurationError, The adapter is pointed somewhere it was not meant to reach., fixture, crm(), crm_registry(), ItmanoCrmSettings, Offline tests for the CRM adapter. Every response here comes from…, The planner sees descriptions and nothing else. (+4 more)
+
+### Community 10 - "Community 10"
 Cohesion: 0.12
 Nodes (15): Binding, BindingError, BindingTable, DenialReason, load_bindings(), Path, Which conversation may act for which tenant. This module is the authorization…, Decide whether this message may act, and for whom. (+7 more)
 
-### Community 10 - "Community 10"
+### Community 11 - "Community 11"
 Cohesion: 0.13
 Nodes (16): ItmanoCrmClient, One client per process. Holds the connection pool; owns no state., client(), Live checks against the CRM sandbox. Read-only, and skipped by default. These…, Drift detector. The vendored contract is where per-operation timeouts and the…, test_an_over_large_limit_is_rejected_not_truncated(), test_an_unknown_lead_maps_to_not_found(), test_identity_matches_what_we_expect() (+8 more)
 
-### Community 11 - "Community 11"
+### Community 12 - "Community 12"
 Cohesion: 0.14
 Nodes (22): CreateEmailDraftParams, CreateLeadParams, CreateNoteParams, GetDealParams, GetLeadParams, Intent, Language, LeadStage (+14 more)
 
-### Community 12 - "Community 12"
+### Community 13 - "Community 13"
 Cohesion: 0.12
 Nodes (14): ItmanoCrmSettings, Configuration for the ITMANO CRM adapter. Everything arrives via env vars., Connection details plus the assertion that guards against pointing here at the…, contract_version(), load_contract(), Operation, operations(), Any (+6 more)
 
-### Community 13 - "Community 13"
+### Community 14 - "Community 14"
 Cohesion: 0.12
 Nodes (17): agent_tool_operations(), Any, ToolRegistry, Registration of the CRM tools into a :class:`ToolRegistry`. Descriptions here…, Operation ids the contract marks as belonging in an agent's catalogue.…, Perform a call and flatten every expected failure into a result., Publish the CRM tools. Call once at startup, before ``registry.freeze()``. The…, register() (+9 more)
 
-### Community 14 - "Community 14"
+### Community 15 - "Community 15"
 Cohesion: 0.21
 Nodes (12): LlmPlanner, Turns a transcript plus a tool catalogue into the next step., mock, What a challenge page or a proxy error actually looks like., completion(), An unbounded repair loop is a hole in the cost ceiling., A 500 is not a parse problem; repeating the same prompt will not fix it., The safety net: if the model API is down, commands must still answer. (+4 more)
-
-### Community 15 - "Community 15"
-Cohesion: 0.15
-Nodes (12): ConfigurationError, The adapter is pointed somewhere it was not meant to reach., fixture, crm(), crm_registry(), ItmanoCrmSettings, Offline tests for the CRM adapter. Every response here comes from…, The planner sees descriptions and nothing else. (+4 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.15
@@ -201,24 +201,24 @@ Cohesion: 0.12
 Nodes (12): AuditSink, Guard, Planner, Turns a transcript plus a tool catalogue into the next step., Deterministic-first gate in front of every call. Implementations run cheap…, Where action records go. The hash chain lives in the implementation., GuardStore, Record a write and return how many happened in the trailing hour. (+4 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.12
-Nodes (9): LeadStage, parametrize, The catalogue documents several conventions. Look, do not guess., error_body(), Any, A rejected enum costs a whole extra planning round trip, so accept the English…, Normalising is not the same as accepting anything., TestErrorTranslation (+1 more)
-
-### Community 19 - "Community 19"
 Cohesion: 0.23
 Nodes (5): parse(), Models wrap JSON in fences constantly, whatever the instructions say., Code catches this, not the model's good behaviour., A model adding commentary keys should not fail the whole plan., TestParsing
 
-### Community 20 - "Community 20"
+### Community 19 - "Community 19"
 Cohesion: 0.26
 Nodes (8): build_system_prompt(), One tool as the planner sees it: signature, purpose, per-argument notes. The…, _render_tool(), If the valid values are not in the prompt the model has to guess., Field descriptions used to be dropped from the prompt entirely. Only the tool-…, TestParameterNotesReachThePlanner, TestSystemPrompt, ToolSpec
 
-### Community 21 - "Community 21"
+### Community 20 - "Community 20"
 Cohesion: 0.19
 Nodes (10): _clip(), Trim only what is genuinely oversized, and say so when it happens. Silent…, planner(), The planner's parser, offline. Without native function calling the model…, A page of ten leads is ~3000 chars. Cutting it was the truncation bug., Silent truncation makes the model invent the rest or hedge blindly., settings(), TestNoParamsTool (+2 more)
 
-### Community 22 - "Community 22"
+### Community 21 - "Community 21"
 Cohesion: 0.20
 Nodes (7): detect_language(), Name the language to answer in, or None when it is not clear. Deliberately…, PlanRequest, Decided in code, not left to a rule in a cached prompt. Three live failures…, leads' and 'en' occur in English too; a single hit proves nothing., A description saying "in English or Russian" seeded Russian replies to English…, TestReplyLanguage
+
+### Community 22 - "Community 22"
+Cohesion: 0.12
+Nodes (9): LeadStage, parametrize, The catalogue documents several conventions. Look, do not guess., error_body(), Any, A rejected enum costs a whole extra planning round trip, so accept the English…, Normalising is not the same as accepting anything., TestErrorTranslation (+1 more)
 
 ### Community 23 - "Community 23"
 Cohesion: 0.25
@@ -252,7 +252,7 @@ Nodes (3): _imported_modules(), Executable form of the dependency rule: the core
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ItmanoCrmClient` connect `Community 10` to `Community 5`, `Community 12`, `Community 15`, `Community 16`, `Community 24`, `Community 25`, `Community 28`?**
+- **Why does `ItmanoCrmClient` connect `Community 11` to `Community 5`, `Community 9`, `Community 13`, `Community 16`, `Community 24`, `Community 25`, `Community 28`?**
   _High betweenness centrality (0.041) - this node is a cross-community bridge._
 - **Why does `InMemoryGuardStore` connect `Community 1` to `Community 4`?**
   _High betweenness centrality (0.040) - this node is a cross-community bridge._
