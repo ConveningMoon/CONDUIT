@@ -9,7 +9,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3856b196`
+- Built from commit: `bf206f6c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -43,7 +43,6 @@
 - Community 26
 - Community 27
 - Community 28
-- Community 29
 - Community 30
 - Community 31
 - Community 32
@@ -94,6 +93,7 @@
 - Community 77
 - Community 78
 - Community 79
+- Community 80
 
 ## God Nodes (most connected - your core abstractions)
 1. `ToolRegistry` - 53 edges
@@ -161,16 +161,16 @@ Cohesion: 0.15
 Nodes (15): mock, mock_candidate_prices(), ToolRegistry, strict=true rejects bad params before the debit, not after., generate_image prices every candidate before spending. Free, but mocked., Belt and braces: never poll again over an unknown word for 'ready'., /debug claims to report what the turn cost. It counted only the planning calls,…, The platform refunds a failure, so charging it to the turn would overstate the… (+7 more)
 
 ### Community 9 - "Community 9"
+Cohesion: 0.10
+Nodes (13): ConfigurationError, The adapter is pointed somewhere it was not meant to reach., crm(), error_body(), Any, ItmanoCrmSettings, Offline tests for the CRM adapter. Every response here comes from…, What a challenge page or a proxy error actually looks like. (+5 more)
+
+### Community 10 - "Community 10"
 Cohesion: 0.17
 Nodes (16): LlmPlanner, Turns a transcript plus a tool catalogue into the next step., completion(), planner(), The planner's parser, offline. Without native function calling the model…, An unbounded repair loop is a hole in the cost ceiling., A 500 is not a parse problem; repeating the same prompt will not fix it., The safety net: if the model API is down, commands must still answer. (+8 more)
 
-### Community 10 - "Community 10"
+### Community 11 - "Community 11"
 Cohesion: 0.12
 Nodes (15): Binding, BindingError, BindingTable, DenialReason, load_bindings(), Path, Which conversation may act for which tenant. This module is the authorization…, Decide whether this message may act, and for whom. (+7 more)
-
-### Community 11 - "Community 11"
-Cohesion: 0.10
-Nodes (13): ConfigurationError, The adapter is pointed somewhere it was not meant to reach., crm(), error_body(), Any, ItmanoCrmSettings, Offline tests for the CRM adapter. Every response here comes from…, What a challenge page or a proxy error actually looks like. (+5 more)
 
 ### Community 12 - "Community 12"
 Cohesion: 0.13
@@ -201,28 +201,28 @@ Cohesion: 0.17
 Nodes (13): GenerateImageParams, fixture, client(), VibemarketologClient, Generation tools, offline. Every response here is simulated. Real generation…, The catalogue rejects over 800 characters. Better to never send it., Cost 1.20 RUB and 180 seconds to learn: the API says 'complete', not…, An optional field renders as "model?" in the planner prompt, and the planner… (+5 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.14
-Nodes (7): LeadStage, parametrize, The catalogue documents several conventions. Look, do not guess., TestUrlExtraction, A rejected enum costs a whole extra planning round trip, so accept the English…, Normalising is not the same as accepting anything., TestStageAliases
-
-### Community 20 - "Community 20"
 Cohesion: 0.23
 Nodes (5): parse(), Models wrap JSON in fences constantly, whatever the instructions say., Code catches this, not the model's good behaviour., A model adding commentary keys should not fail the whole plan., TestParsing
 
-### Community 21 - "Community 21"
+### Community 20 - "Community 20"
 Cohesion: 0.20
 Nodes (7): detect_language(), Name the language to answer in, or None when it is not clear. Deliberately…, PlanRequest, Decided in code, not left to a rule in a cached prompt. Three live failures…, leads' and 'en' occur in English too; a single hit proves nothing., A description saying "in English or Russian" seeded Russian replies to English…, TestReplyLanguage
 
-### Community 22 - "Community 22"
+### Community 21 - "Community 21"
 Cohesion: 0.24
 Nodes (8): main(), percentile(), Measure what a CRM tool call actually costs, through the real invocation path.…, timed(), crm_registry(), The planner sees descriptions and nothing else., TestRegistration, ToolRegistry
 
-### Community 23 - "Community 23"
+### Community 22 - "Community 22"
 Cohesion: 0.24
 Nodes (8): CrmResponse, HTTP client for the CRM agent surface. Failures raise :class:`CrmError`…, A successful call, plus the headers worth carrying forward., from_code(), from_status(), ToolErrorCode, Translation from the CRM's error vocabulary into CONDUIT's. The CRM publishes a…, Map a published error code. Falls back to the status when unrecognised. An…
 
-### Community 24 - "Community 24"
+### Community 23 - "Community 23"
 Cohesion: 0.29
 Nodes (3): Refuse to serve anything if the server is not who we expect. Called once before…, Identity the server reports for our token., WhoAmI
+
+### Community 24 - "Community 24"
+Cohesion: 0.14
+Nodes (7): LeadStage, parametrize, The catalogue documents several conventions. Look, do not guess., TestUrlExtraction, A rejected enum costs a whole extra planning round trip, so accept the English…, Normalising is not the same as accepting anything., TestStageAliases
 
 ### Community 25 - "Community 25"
 Cohesion: 0.25
