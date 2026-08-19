@@ -357,3 +357,86 @@ class TestModelIsAlwaysChosen:
     def test_an_unlisted_model_is_refused(self) -> None:
         with pytest.raises(ValidationError):
             GenerateImageParams(prompt="a house", model="seedream-5-pro")  # type: ignore[arg-type]
+
+
+class TestGenerationReachesTheLedger:
+    """/debug claims to report what the turn cost. It counted only the planning
+    calls, so a turn that generated a 7 RUB image reported 1 RUB — a fraction of
+    the real bill, presented as the total."""
+
+    @respx.mock
+    async def test_a_paid_generation_is_recorded(
+        self, registry: ToolRegistry, ctx: ToolContext
+    ) -> None:
+        from conduit.core.telemetry import turn_ledger
+
+        mock_candidate_prices()
+        respx.post(f"{BASE}/generate").mock(return_value=httpx.Response(200, json={"id": "g"}))
+        respx.get(f"{BASE}/generation/g/status").mock(
+            return_value=httpx.Response(
+                200, json={"status": "complete", "result_url": "https://x/y.png", "cost": 7.0}
+            )
+        )
+
+        with turn_ledger() as ledger:
+            await registry.invoke(
+                ToolCall(
+                    id="c1",
+                    name="vibemarketolog.generate_image",
+                    arguments={"prompt": "a poster", "model": "qwen-image-3"},
+                ),
+                ctx,
+            )
+
+        assert len(ledger) == 1
+        assert ledger[0].model == "qwen-image-3"
+        assert ledger[0].cost_rub == 7.0
+        assert ledger[0].latency_ms >= 0
+
+    @respx.mock
+    async def test_a_failed_generation_records_nothing(
+        self, registry: ToolRegistry, ctx: ToolContext
+    ) -> None:
+        """The platform refunds a failure, so charging it to the turn would
+        overstate the bill in the other direction."""
+        from conduit.core.telemetry import turn_ledger
+
+        mock_candidate_prices()
+        respx.post(f"{BASE}/generate").mock(return_value=httpx.Response(200, json={"id": "g"}))
+        respx.get(f"{BASE}/generation/g/status").mock(
+            return_value=httpx.Response(200, json={"status": "failed", "error": "nsfw"})
+        )
+
+        with turn_ledger() as ledger:
+            await registry.invoke(
+                ToolCall(
+                    id="c1",
+                    name="vibemarketolog.generate_image",
+                    arguments={"prompt": "a poster", "model": "z-image"},
+                ),
+                ctx,
+            )
+
+        assert ledger == []
+
+    @respx.mock
+    async def test_a_free_estimate_costs_nothing_and_is_not_billed(
+        self, registry: ToolRegistry, ctx: ToolContext
+    ) -> None:
+        from conduit.core.telemetry import turn_ledger
+
+        respx.post(f"{BASE}/generate/estimate").mock(
+            return_value=httpx.Response(200, json={"valid": True, "price_rub": 549.0})
+        )
+
+        with turn_ledger() as ledger:
+            await registry.invoke(
+                ToolCall(
+                    id="c1",
+                    name="vibemarketolog.estimate_generation",
+                    arguments={"media_type": "video", "prompt": "a tour"},
+                ),
+                ctx,
+            )
+
+        assert ledger == [], "pricing something must never appear as a charge"

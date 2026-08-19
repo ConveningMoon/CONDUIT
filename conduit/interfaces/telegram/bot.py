@@ -191,13 +191,18 @@ class TelegramGateway:
         if not entries:
             return "No model calls yet this session. Commands are answered without one."
 
-        lines = [
-            f"• {entry.model}  {entry.cost_rub:.2f} RUB  {entry.latency_ms} ms"
-            f"  in/out {entry.input_tokens}/{entry.output_tokens}"
-            + (f"  cached {entry.cached_tokens}" if entry.cached_tokens else "")
-            + ("  (retry after an unparseable reply)" if entry.retry else "")
-            for entry in entries
-        ]
+        lines = []
+        for entry in entries:
+            line = f"• {entry.model}  {entry.cost_rub:.2f} RUB  {entry.latency_ms} ms"
+            # An image generation has no tokens at all; printing "in/out 0/0"
+            # next to the most expensive line of the turn reads like a bug.
+            if entry.input_tokens or entry.output_tokens:
+                line += f"  in/out {entry.input_tokens}/{entry.output_tokens}"
+            if entry.cached_tokens:
+                line += f"  cached {entry.cached_tokens}"
+            if entry.retry:
+                line += "  (retry after an unparseable reply)"
+            lines.append(line)
         total = sum(entry.cost_rub for entry in entries)
         return f"Last turn: {len(entries)} model call(s), {total:.2f} RUB total\n" + "\n".join(
             lines
