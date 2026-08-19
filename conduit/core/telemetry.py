@@ -21,7 +21,13 @@ __all__ = ["ModelCall", "current_ledger", "record_model_call", "turn_ledger"]
 
 @dataclass(frozen=True, slots=True)
 class ModelCall:
-    """One request to a language model, and what it cost."""
+    """One billable request made on the user's behalf, and what it cost.
+
+    Not only text. An image generation is the most expensive thing a turn can
+    do — seven roubles against one for a planning pass — so leaving it out made
+    ``/debug`` report a fraction of the real bill while claiming to be the
+    total. Token fields are simply zero for generations, which have none.
+    """
 
     model: str
     cost_rub: float

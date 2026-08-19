@@ -14,11 +14,13 @@ is one accidental tool call. Pricing is exposed; spending is not.
 
 from __future__ import annotations
 
+import time
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from conduit.adapters.vibemarketolog.client import GenerationError, VibemarketologClient
+from conduit.core.telemetry import ModelCall, record_model_call
 from conduit.core.tools import (
     SideEffect,
     ToolContext,
@@ -109,6 +111,7 @@ def register(registry: ToolRegistry, client: VibemarketologClient) -> None:
             "prompt": params.prompt,
             "aspect_ratio": params.aspect_ratio,
         }
+        started_at = time.perf_counter()
         try:
             generation_id = await client.start_generation(body)
             finished = await client.await_generation(
@@ -120,6 +123,16 @@ def register(registry: ToolRegistry, client: VibemarketologClient) -> None:
                 str(exc),
                 retryable=exc.retryable,
             )
+
+        # Into the turn ledger, so /debug reports the whole bill and not just the
+        # planning that led to it. This is the expensive line by far.
+        record_model_call(
+            ModelCall(
+                model=model,
+                cost_rub=float(finished.get("cost") or 0.0),
+                latency_ms=int((time.perf_counter() - started_at) * 1000),
+            )
+        )
 
         return ToolResult.ok(
             {
