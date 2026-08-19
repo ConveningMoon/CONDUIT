@@ -24,7 +24,13 @@ from conduit.interfaces.telegram.bindings import BindingTable, Resolution
 from conduit.interfaces.telegram.config import TelegramSettings
 from conduit.interfaces.telegram.planner import describe_step
 
-__all__ = ["REFUSAL", "TYPING_REFRESH_SECONDS", "TelegramGateway", "build_dispatcher"]
+__all__ = [
+    "REFUSAL",
+    "TYPING_REFRESH_SECONDS",
+    "UNREADABLE",
+    "TelegramGateway",
+    "build_dispatcher",
+]
 
 TYPING_REFRESH_SECONDS = 4.0
 """Telegram drops the typing state after about five seconds, so it has to be
@@ -43,6 +49,26 @@ rather than 403 for another tenant's record.
 
 PROBLEM = "Something went wrong handling that. It has been logged."
 
+UNREADABLE = (
+    "I can only read text messages. Voice notes, photos and files are not "
+    "something I can take yet — type it out and I will pick it up."
+)
+"""Said to someone who IS authorised but sent something unreadable.
+
+Deliberately different from REFUSAL. The platform behind the generation tools
+offers text-to-speech but no speech-to-text, so a voice note genuinely cannot be
+understood; saying "not authorised" instead would be a lie, and the sort a first
+impression does not survive.
+"""
+
+
+def _message_kind(message: Message) -> str:
+    """Name what arrived, for the log. Nothing here reaches the sender."""
+    for attribute in ("voice", "audio", "photo", "video", "document", "sticker", "location"):
+        if getattr(message, attribute, None):
+            return attribute
+    return "unknown"
+
 
 @dataclass(slots=True)
 class TelegramGateway:
@@ -60,9 +86,15 @@ class TelegramGateway:
         sender = message.from_user
         text = (message.text or "").strip()
 
-        if sender is None or not text:
+        if sender is None:
             return REFUSAL
 
+        # Authorisation is settled first, and only then the question of whether
+        # the message is readable. The other order tells an authorised person
+        # who sent a voice note that they are not authorised, which is false and
+        # is the one wrong thing to say to someone trying the bot for the first
+        # time. Anyone *not* authorised still gets the same refusal whatever they
+        # send, so this leaks nothing.
         resolution = self.bindings.resolve(
             chat_id=chat.id,
             user_id=sender.id,
@@ -71,6 +103,10 @@ class TelegramGateway:
         if not resolution.allowed:
             self._log_denial(resolution, chat_id=chat.id, user_id=sender.id)
             return REFUSAL
+
+        if not text:
+            log.info("telegram.unreadable", chat_id=chat.id, kind=_message_kind(message))
+            return UNREADABLE
 
         binding = resolution.binding
         assert binding is not None  # narrowed by resolution.allowed
