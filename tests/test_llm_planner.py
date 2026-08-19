@@ -307,3 +307,60 @@ class TestParameterNotesReachThePlanner:
         )
 
         assert "Pick the expensive one when it matters." in build_system_prompt((spec,))
+
+
+class TestReplyLanguage:
+    """Decided in code, not left to a rule in a cached prompt.
+
+    Three live failures forced this: an English question answered in Spanish
+    because every value in the result was Spanish, and another answered in
+    Russian because a tool description happened to mention Russian.
+    """
+
+    def test_it_places_the_three_languages_this_deployment_sees(self) -> None:
+        from conduit.adapters.vibemarketolog.planner import detect_language
+
+        assert detect_language("show me the leads in the lost stage") == "English"
+        assert detect_language("muéstrame los leads en etapa perdido") == "Spanish"
+        assert detect_language("покажи мне лиды на этапе perdido") == "Russian"
+
+    def test_one_ambiguous_word_is_not_enough_for_spanish(self) -> None:
+        """'leads' and 'en' occur in English too; a single hit proves nothing."""
+        from conduit.adapters.vibemarketolog.planner import detect_language
+
+        assert detect_language("show me the leads") == "English"
+
+    def test_an_empty_message_names_no_language(self) -> None:
+        from conduit.adapters.vibemarketolog.planner import detect_language
+
+        assert detect_language("   ") is None
+
+    def test_the_instruction_is_the_last_thing_the_model_reads(self) -> None:
+        from conduit.adapters.vibemarketolog.planner import _transcript
+
+        request = PlanRequest(
+            history=(
+                Turn(role=Role.USER, content="show me the leads in the lost stage"),
+                Turn(
+                    role=Role.TOOL,
+                    content='{"stage":"perdido"}',
+                    tool_call_id="c1",
+                    tool_name="itmano_crm.list_leads",
+                ),
+            ),
+            tools=(),
+            iteration=2,
+        )
+
+        assert _transcript(request).endswith("Write your reply in English.")
+
+    def test_the_tool_descriptions_name_no_language(self) -> None:
+        """A description saying "in English or Russian" seeded Russian replies to
+        English questions, once the argument notes started reaching the model."""
+        from conduit.adapters.vibemarketolog.tools import GenerateImageParams
+
+        schema = GenerateImageParams.model_json_schema()
+        prompt_note = schema["properties"]["prompt"]["description"]
+
+        assert "Russian" not in prompt_note
+        assert "English" not in prompt_note

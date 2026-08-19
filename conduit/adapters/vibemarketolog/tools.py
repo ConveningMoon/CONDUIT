@@ -51,7 +51,7 @@ class GenerateImageParams(_Params):
         min_length=3,
         max_length=800,
         description=(
-            "What the image should show, in English or Russian. Be concrete about "
+            "What the image should show. Be concrete about "
             "subject, setting and style. Longer than 800 characters is rejected "
             "before anything is charged."
         ),

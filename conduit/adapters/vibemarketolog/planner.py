@@ -123,6 +123,75 @@ def build_system_prompt(tools: tuple[ToolSpec, ...]) -> str:
     return INSTRUCTIONS + "\n".join(_render_tool(spec) for spec in tools)
 
 
+LANGUAGE_HINT = """A rule buried in a cached system prompt loses to whatever the data
+suggests. Three live failures made that concrete: an English question answered in
+Spanish because every value in the result was Spanish, and another answered in
+Russian because a tool description happened to mention Russian.
+
+So the language is decided here, in code, and stated in the last line the model
+reads. Detection is a heuristic over the three languages this deployment actually
+sees; anything it cannot place is left to the model, which is no worse than the
+behaviour it replaces."""
+
+_CYRILLIC = set("абвгдежзийклмнопрстуфхцчшщъыьэюя")
+
+_SPANISH_MARKERS = set("ñáéíóú¿¡")
+_SPANISH_WORDS = frozenset(
+    {
+        "el",
+        "la",
+        "los",
+        "las",
+        "un",
+        "una",
+        "que",
+        "de",
+        "del",
+        "para",
+        "con",
+        "por",
+        "en",
+        "es",
+        "son",
+        "esta",
+        "estan",
+        "cuanto",
+        "como",
+        "muestrame",
+        "dame",
+        "hazme",
+        "genera",
+        "mueve",
+        "etapa",
+        "leads",
+    }
+)
+
+
+def detect_language(text: str) -> str | None:
+    """Name the language to answer in, or None when it is not clear.
+
+    Deliberately small: this deployment sees English, Spanish and Russian, and a
+    general-purpose detector would be a dependency bought for three cases."""
+    lowered = text.casefold()
+
+    if any(character in _CYRILLIC for character in lowered):
+        return "Russian"
+
+    if any(character in _SPANISH_MARKERS for character in lowered):
+        return "Spanish"
+
+    words = {word.strip("¿?¡!.,;:'\"()") for word in lowered.split()}
+    spanish_hits = len(words & _SPANISH_WORDS)
+    # "leads" and "en" appear in English too, so one hit proves nothing.
+    if spanish_hits >= 2:
+        return "Spanish"
+
+    if lowered.strip():
+        return "English"
+    return None
+
+
 def _strip_fences(text: str) -> str:
     return _FENCE.sub("", text).strip()
 
@@ -165,6 +234,17 @@ def _transcript(request: PlanRequest, limit: int = 12) -> str:
                 lines.append(f"Assistant: {turn.content}")
             case Role.TOOL:
                 lines.append(f"Result of {turn.tool_name}: {_clip(turn.content)}")
+
+    # Last line the model reads, and the only one that reliably decides the
+    # language of the answer. See LANGUAGE_HINT.
+    latest = next(
+        (turn.content for turn in reversed(request.history) if turn.role is Role.USER),
+        "",
+    )
+    language = detect_language(latest)
+    if language:
+        lines.append(f"\nWrite your reply in {language}.")
+
     return "\n".join(lines)
 
 
