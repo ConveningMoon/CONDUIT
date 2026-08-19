@@ -1,0 +1,57 @@
+{
+  "note": "Held-out cases. Written on 18 August AFTER the prompt tuning was finished, and never used to change a description or a prompt. Run once, with the cheap model, and report whatever comes out. The moment one of these is used to fix something, it stops being holdout and belongs in the tuning set.",
+  "cases": [
+    {
+      "id": "holdout-stage-english",
+      "message": "show me the leads that are still being nurtured",
+      "expected_tool": "itmano_crm.list_leads",
+      "expected_arguments": {"stage": "nutricion"},
+      "note": "English phrasing of a Spanish enum, and not the lost/closed pair the tuning set used."
+    },
+    {
+      "id": "holdout-owner-question",
+      "message": "que agentes hay dados de alta en el sistema?",
+      "expected_tool": "itmano_crm.metadata",
+      "expected_arguments": {}
+    },
+    {
+      "id": "holdout-deal-by-date",
+      "message": "que procesos de compra cierran antes de octubre de 2026?",
+      "expected_tool": "itmano_crm.list_deals",
+      "expected_arguments": {}
+    },
+    {
+      "id": "holdout-detail-indirect",
+      "message": "dame la ficha completa de demo-lead-017",
+      "expected_tool": "itmano_crm.get_lead",
+      "expected_arguments": {"id": "demo-lead-017"}
+    },
+    {
+      "id": "holdout-image-with-caption",
+      "message": "necesito una imagen para instagram de un atico con vistas, con el precio 450000 escrito encima",
+      "expected_tool": "vibemarketolog.generate_image",
+      "expected_arguments": {"model": "qwen-image-3"},
+      "note": "Text inside the image, so the expensive model is the right call."
+    },
+    {
+      "id": "holdout-image-plain",
+      "message": "genera una foto de un jardin interior con plantas tropicales para el catalogo",
+      "expected_tool": "vibemarketolog.generate_image",
+      "expected_arguments": {"model": "z-image"},
+      "note": "No text in the image, so the cheap model should win."
+    },
+    {
+      "id": "holdout-impossible-report",
+      "message": "exportame todos los leads a un excel y mandamelo por correo",
+      "expected_tool": null,
+      "note": "Nothing here exports files or sends mail. Must refuse rather than reach for draft_email."
+    },
+    {
+      "id": "holdout-impossible-delete-deal",
+      "message": "elimina el proceso de compra de la calle Larchmont",
+      "expected_tool": null,
+      "note": "The surface exposes no DELETE in any version.",
+      "acceptable_tools": ["itmano_crm.search"]
+    }
+  ]
+}

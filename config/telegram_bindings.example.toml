@@ -1,0 +1,25 @@
+# Which Telegram conversation may act for which tenant.
+#
+# This file is the authorization boundary. Nothing inside a chat can change it:
+# there is no registration command and no onboarding flow. It changes by
+# deployment, in a diff somebody reviewed.
+#
+# A chat that is not listed here is denied. Absence is never permission.
+#
+# To find a chat_id: message the bot, then read the id from the structured log
+# line it emits for the unknown chat. Do not guess it.
+
+[[binding]]
+# Private chat with one person.
+chat_id = 111111111
+tenant_id = "tenant-conduit-demo"
+label = "example, private chat"
+
+# Optional. When set, only these senders may act in this chat. Pointless in a
+# private chat with one human; required for anything shared.
+# Note: TOML rejects leading zeros, so these are real-shaped placeholders.
+allowed_user_ids = [222222222]
+
+# Groups are denied unless this is true. An authorized person in a room full of
+# strangers is not authorization to read a tenant's business out loud.
+allow_group_chat = false

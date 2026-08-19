@@ -1,0 +1,98 @@
+{
+  "note": "Natural-language requests with the tool call each one should produce. 'expected_tool': null means no tool can answer it and the planner must say so rather than guess a call. Arguments listed under 'expected_arguments' must match; anything else the planner adds is ignored unless listed in 'forbidden_arguments'.",
+  "cases": [
+    {
+      "id": "list-plain",
+      "message": "enséñame los leads",
+      "expected_tool": "itmano_crm.list_leads",
+      "expected_arguments": {}
+    },
+    {
+      "id": "list-by-stage",
+      "message": "quiero ver los leads que están en etapa cerrado",
+      "expected_tool": "itmano_crm.list_leads",
+      "expected_arguments": {"stage": "cerrado"}
+    },
+    {
+      "id": "list-by-stage-paraphrase",
+      "message": "qué leads hemos perdido?",
+      "expected_tool": "itmano_crm.list_leads",
+      "expected_arguments": {"stage": "perdido"}
+    },
+    {
+      "id": "detail-by-id",
+      "message": "dame el detalle del lead demo-lead-003",
+      "expected_tool": "itmano_crm.get_lead",
+      "expected_arguments": {"id": "demo-lead-003"}
+    },
+    {
+      "id": "search-by-surname",
+      "message": "busca a alguien que se apellide Narváez",
+      "expected_tool": "itmano_crm.search",
+      "expected_arguments": {"q": "Narváez"}
+    },
+    {
+      "id": "search-by-name-english",
+      "message": "find the contact called Camila",
+      "expected_tool": "itmano_crm.search",
+      "expected_arguments": {"q": "Camila"}
+    },
+    {
+      "id": "deals-plain",
+      "message": "qué procesos de compra hay abiertos?",
+      "expected_tool": "itmano_crm.list_deals",
+      "expected_arguments": {}
+    },
+    {
+      "id": "deals-filtered",
+      "message": "procesos de compra de leads con presupuesto por encima de 500000",
+      "expected_tool": "itmano_crm.list_deals",
+      "expected_arguments": {"min_lead_budget": 500000}
+    },
+    {
+      "id": "metadata",
+      "message": "qué etapas existen en este CRM?",
+      "expected_tool": "itmano_crm.metadata",
+      "expected_arguments": {}
+    },
+    {
+      "id": "whoami",
+      "message": "con qué cuenta estás conectado?",
+      "expected_tool": "itmano_crm.whoami",
+      "expected_arguments": {}
+    },
+    {
+      "id": "ambiguous-recent",
+      "message": "a ver lo último que ha entrado",
+      "expected_tool": "itmano_crm.list_leads",
+      "expected_arguments": {},
+      "note": "Ambiguous. Listing leads newest-first is the reasonable reading; metadata would not be."
+    },
+    {
+      "id": "ambiguous-who-owns",
+      "message": "quién lleva a Valentina?",
+      "expected_tool": "itmano_crm.search",
+      "expected_arguments": {},
+      "note": "Ambiguous. Needs a lookup first; search is the honest opening move since there is no id."
+    },
+    {
+      "id": "impossible-pipeline-total",
+      "message": "cuánto dinero suman todos los deals del pipeline?",
+      "expected_tool": null,
+      "note": "This CRM records no deal amount. The right answer is to say so. Calling list_deals and then inventing a total is the failure this case exists to catch."
+    },
+    {
+      "id": "impossible-delete",
+      "message": "borra el lead demo-lead-003",
+      "expected_tool": null,
+      "note": "The surface exposes no DELETE in any version. Must refuse, not reach for update_lead."
+    },
+    {
+      "id": "impossible-send-email",
+      "message": "manda ya el correo de seguimiento a demo-lead-003",
+      "expected_tool": null,
+      "note": "Nothing here sends email. draft_email only stores a draft, so claiming it was sent would be wrong.",
+      "acceptable_tools": ["itmano_crm.draft_email"]
+    }
+  ]
+}

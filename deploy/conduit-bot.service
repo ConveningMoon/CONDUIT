@@ -1,0 +1,42 @@
+[Unit]
+Description=CONDUIT Telegram agent
+Documentation=https://github.com/ConveningMoon/CONDUIT
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=conduit
+Group=conduit
+WorkingDirectory=/opt/conduit/CONDUIT
+EnvironmentFile=/opt/conduit/CONDUIT/.env
+ExecStart=/opt/conduit/.venv/bin/python scripts/run_telegram_bot.py
+
+# Long polling, so a restart is cheap and never loses an inbound request.
+Restart=always
+RestartSec=5
+
+# This machine also runs a VPN server. A runaway process here must not reach it.
+# Measured footprint is around 250 MB; 512 leaves room without endangering the
+# neighbour.
+MemoryMax=512M
+TasksMax=64
+
+# The bot opens outbound connections and reads its own directory. Nothing else.
+# It writes no file anywhere — audit log and guard counters are in-memory — so
+# the whole filesystem can stay read-only; no ReadWritePaths is needed.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=conduit-bot
+
+[Install]
+WantedBy=multi-user.target

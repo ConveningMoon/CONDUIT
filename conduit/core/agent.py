@@ -16,6 +16,7 @@ Two invariants hold here and are worth stating plainly:
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -48,6 +49,7 @@ __all__ = [
     "Planner",
     "ReadOnlyGuard",
     "Role",
+    "StepReporter",
     "StopReason",
     "Turn",
 ]
@@ -191,6 +193,22 @@ class NullAuditSink:
         return None
 
 
+class StepReporter(Protocol):
+    """Notified of every call the loop considered, with the guard's verdict.
+
+    The point is not decoration. A turn that takes seconds is a black box unless
+    something says what the agent decided; showing the tool and its arguments
+    turns a wait into visible reasoning, and makes a wrong choice legible at the
+    moment it is made rather than after the answer comes out wrong.
+
+    Refusals are reported too, and deliberately: the guard stopping something is
+    the most interesting thing a turn can contain, and it would otherwise surface
+    only in the final answer, once the moment has passed.
+    """
+
+    async def __call__(self, call: ToolCall, spec: ToolSpec, decision: GuardDecision) -> None: ...
+
+
 class StopReason(StrEnum):
     COMPLETED = "completed"
     MAX_ITERATIONS = "max_iterations"
@@ -236,6 +254,7 @@ class Agent:
     planner: Planner
     guard: Guard = field(default_factory=ReadOnlyGuard)
     audit: AuditSink = field(default_factory=NullAuditSink)
+    on_step: StepReporter | None = None
     max_iterations: int = DEFAULT_MAX_ITERATIONS
 
     async def run(
@@ -312,6 +331,14 @@ class Agent:
 
         decision = await self.guard.review(call, spec, ctx)
         await self.audit.record(self._event(AuditPhase.INTENT, call, spec, ctx, decision=decision))
+
+        if self.on_step is not None:
+            # Announced whatever the verdict: a refusal is the most interesting
+            # thing that can happen in a turn, and hiding it until the final
+            # answer wastes the moment. Reporting must never be able to break
+            # the turn it narrates.
+            with contextlib.suppress(Exception):
+                await self.on_step(call, spec, decision)
 
         if decision.allowed:
             result = await self.registry.invoke(call, ctx)
